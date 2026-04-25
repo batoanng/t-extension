@@ -16,12 +16,16 @@ export const promptOutputStyles = [
 ] as const;
 
 export const promptErrorCodes = [
+  'AUTH_REQUIRED',
   'MISSING_OPENAI_API_KEY',
   'INVALID_REQUEST',
   'PROMPT_TOO_LONG',
   'OPENAI_AUTH_FAILED',
   'OPENAI_RATE_LIMITED',
   'OPENAI_REQUEST_FAILED',
+  'SUBSCRIPTION_REQUIRED',
+  'SUBSCRIPTION_INACTIVE',
+  'HOSTED_OPTIMIZATION_UNAVAILABLE',
   'INTERNAL_SERVER_ERROR',
 ] as const;
 
@@ -38,6 +42,7 @@ export type PromptErrorCode = (typeof promptErrorCodes)[number];
 export const OptimizePromptRequestSchema = z.object({
   prompt: z.string().trim().min(MIN_PROMPT_LENGTH).max(MAX_PROMPT_LENGTH),
   mode: z.literal(DEFAULT_MODE).default(DEFAULT_MODE),
+  credentialMode: z.enum(['byok', 'subscription']).default('byok'),
   targetAgent: z.enum(promptTargetAgents).default(DEFAULT_TARGET_AGENT),
   outputStyle: z.enum(promptOutputStyles).default(DEFAULT_OUTPUT_STYLE),
 });
@@ -45,7 +50,9 @@ export const OptimizePromptRequestSchema = z.object({
 export const OptimizePromptResponseSchema = z.object({
   optimizedPrompt: z.string().trim().min(1),
   metadata: z.object({
+    credentialMode: z.enum(['byok', 'subscription']),
     model: z.string().trim().min(1),
+    provider: z.enum(['openai-byok', 'deepseek-subscription']),
     targetAgent: z.enum(promptTargetAgents),
     outputStyle: z.enum(promptOutputStyles),
   }),
@@ -101,6 +108,8 @@ export function getPromptApiErrorMessage(
   code: PromptApiClientErrorCode,
 ): string {
   switch (code) {
+    case 'AUTH_REQUIRED':
+      return 'Please sign in to use Developer Assistant Pro.';
     case 'MISSING_OPENAI_API_KEY':
       return 'Please add your OpenAI API key first.';
     case 'INVALID_REQUEST':
@@ -113,6 +122,12 @@ export function getPromptApiErrorMessage(
       return 'OpenAI rate limit reached. Please wait and try again.';
     case 'OPENAI_REQUEST_FAILED':
       return 'OpenAI could not process the request. Please try again.';
+    case 'SUBSCRIPTION_REQUIRED':
+      return 'Subscribe to Developer Assistant Pro to use hosted optimization.';
+    case 'SUBSCRIPTION_INACTIVE':
+      return 'Your Developer Assistant Pro subscription is inactive.';
+    case 'HOSTED_OPTIMIZATION_UNAVAILABLE':
+      return 'Hosted optimization is unavailable right now.';
     case 'INTERNAL_SERVER_ERROR':
       return 'Something went wrong. Please try again.';
     case 'INVALID_RESPONSE':

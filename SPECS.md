@@ -1,229 +1,358 @@
 # SPECS.md
 
-# Developer Assistant Chrome Extension — Prompt Optimizer
+# Developer Assistant Chrome Extension
 
 ## 1. Overview
 
-This project is a Chrome extension built with **Vite + React + TypeScript**. The extension is designed to assist developers while working with AI coding agents.
+Developer Assistant is a Chrome extension for developers who want help turning rough requests into stronger prompts for AI coding tools.
 
-The first feature is **Prompt Optimizer**.
+The product now supports two operating modes:
 
-The user writes a raw prompt in the extension popup. The extension sends the prompt to the backend server at:
+1. `Default BYOK OpenAI`
+2. `Developer Assistant Pro`
 
-```txt
-POST /api/prompt
-```
+The default path is BYOK. Users can install the extension, save their own OpenAI API key locally, and optimize prompts without creating an account.
 
-The server uses **LangChain** and the **OpenAI API** to rewrite the prompt into a clearer, more structured, and more effective version for AI coding agents. The optimized prompt is returned to the extension and displayed to the user.
+Developer Assistant Pro is the paid hosted path. Pro users log in, subscribe through Stripe, and use hosted prompt optimization powered by the app owner's DeepSeek API key. The user does not provide their own AI API key for Pro optimization.
 
-The user must provide their own **OpenAI API key** before using the feature. The extension stores the key locally in the browser and sends it to the server when making the prompt optimization request. The server uses that key only for the current request and must not permanently store it.
+This spec replaces the earlier assumption that the entire product was single-mode BYOK with no auth or billing.
 
 ---
 
-## 2. Goals
+## 2. Product goals
 
 ### Primary goal
 
-Build a developer-focused Chrome extension that improves user prompts before sending them to AI coding agents.
+Ship a developer-focused extension with a clear commercial model:
+
+- free-to-start default BYOK usage
+- optional paid hosted Pro subscription
+- simple upgrade path from BYOK to Pro
 
 ### First feature goal
 
-Allow users to:
+Prompt Optimizer remains the first core feature, but it must now work across both product modes:
 
-1. Open the extension popup.
-2. Enter their OpenAI API key.
-3. Save the API key locally.
-4. Type a raw prompt.
-5. Send the prompt to the backend server.
-6. Receive an improved prompt.
-7. Copy the improved prompt for use in another AI agent.
+- BYOK users optimize with their own OpenAI key
+- Pro users optimize through the hosted service using the app owner's DeepSeek key
 
-### Future product direction
+### Business goal
 
-The extension should be designed so more developer assistant features can be added later, such as:
+Create a pricing and access model that:
 
-- Code review prompt generator
-- Bug report prompt generator
-- Refactoring prompt generator
-- Architecture design prompt generator
-- Test case prompt generator
-- Pull request summary generator
-- Context extraction from current webpage
-- Integration with GitHub, Jira, Linear, or local docs
-- Prompt templates for specific AI agents such as Codex, Claude Code, Cursor, Windsurf, ChatGPT, or Copilot
+- keeps the product usable without sign-up friction
+- supports recurring revenue through Pro
+- makes hosted usage economically controllable via configurable monthly pricing in Australian dollars
 
 ---
 
-## 3. Non-goals for the first version
+## 3. Product modes
 
-The first version should not include:
+### 3.1 Default mode: BYOK OpenAI
 
-- User authentication
-- Payment or subscription system
-- Prompt history sync across devices
-- Direct integration with AI coding agents
-- Automatic page scraping
-- GitHub OAuth
-- Team workspace support
-- Server-side API key storage
-- Complex prompt template marketplace
+This is the default entry path for the product.
 
-These can be added later.
+Characteristics:
 
----
+- no account required
+- no login required
+- no Stripe subscription required
+- user adds and manages their own OpenAI API key
+- prompt optimization uses the user's OpenAI key
+- key is stored locally in the extension
 
-## 4. Monorepo structure
+This mode should be available immediately after install.
 
-The existing monorepo has at least:
+### 3.2 Paid mode: Developer Assistant Pro
 
-```txt
-repo/
-  apps/
-    web/
-    server/
-```
+This is the hosted subscription tier.
 
-Add a new extension package:
+Characteristics:
 
-```txt
-repo/
-  apps/
-    web/
-    server/
-    extension/
-```
+- account login required
+- active paid subscription required
+- billing handled through Stripe
+- hosted prompt optimization uses the app owner's DeepSeek API key
+- user does not need to enter their own AI key for Pro optimization
 
-Recommended final structure:
+Pro is an upgrade path, not the default requirement.
 
-```txt
-repo/
-  apps/
-    web/
-      package.json
-      src/
-    server/
-      package.json
-      src/
-    extension/
-      package.json
-      index.html
-      vite.config.ts
-      public/
-        manifest.json
-        icons/
-          icon16.png
-          icon48.png
-          icon128.png
-      src/
-        popup/
-          App.tsx
-          main.tsx
-          styles.css
-        components/
-          ApiKeyForm.tsx
-          PromptEditor.tsx
-          OptimizedPromptResult.tsx
-        services/
-          promptApi.ts
-          storage.ts
-        types/
-          prompt.ts
-        utils/
-          errors.ts
-  package.json
-  pnpm-workspace.yaml
-  turbo.json
-```
+### 3.3 Relationship between the two modes
+
+- BYOK and Pro can coexist in the same product
+- users can start in BYOK and upgrade later
+- login must not block BYOK usage
+- Pro unlocks hosted optimization and future hosted premium features
+- BYOK remains available even if a Pro subscription is inactive, as long as the user provides their own OpenAI key
 
 ---
 
-## 5. High-level architecture
+## 4. Pricing and billing model
+
+### 4.1 Pricing
+
+Developer Assistant Pro uses a monthly recurring subscription.
+
+Pricing requirements:
+
+- price is displayed in `A$`
+- monthly price is configurable by the app owner
+- pricing must not be hardcoded in product copy or implementation assumptions
+- the extension and related product surfaces should read and display the currently configured Pro monthly price
+
+### 4.2 Billing provider
+
+Stripe is the billing system for Pro.
+
+Stripe is responsible for:
+
+- checkout
+- subscription creation
+- payment collection
+- renewals
+- cancellation handling
+- payment method updates
+- customer billing portal flows if provided
+
+### 4.3 Plan model
+
+The initial paid offer is a single Pro plan.
+
+For the first commercial version:
+
+- one monthly Pro plan is sufficient
+- annual pricing is out of scope
+- team billing is out of scope
+- usage-based metering is out of scope
+
+---
+
+## 5. Authentication and access rules
+
+### 5.1 BYOK authentication rule
+
+BYOK does not require login.
+
+The user can:
+
+- install the extension
+- add an OpenAI API key
+- optimize prompts
+
+without creating an account.
+
+### 5.2 Pro authentication rule
+
+Pro requires login because the system must associate subscription state with a user account.
+
+The user must be able to:
+
+- sign up or log in
+- view Pro status
+- start Stripe checkout
+- return from checkout with updated access
+- manage billing
+
+### 5.3 Important product rule
+
+Login should only be enforced for Pro features.
+
+The extension must not force BYOK users through auth walls, account creation, or billing prompts before they can use the default prompt optimizer.
+
+---
+
+## 6. User journeys
+
+### 6.1 New user, default BYOK path
+
+1. User installs the extension.
+2. User sees Prompt Optimizer with a BYOK option available by default.
+3. User adds their own OpenAI API key.
+4. User enters a raw prompt.
+5. The system optimizes the prompt using the user's OpenAI key.
+6. The user can continue without ever creating an account.
+
+### 6.2 New user, Pro upgrade path
+
+1. User installs the extension.
+2. User sees an option to upgrade to Developer Assistant Pro.
+3. User chooses Pro.
+4. User signs up or logs in.
+5. User starts Stripe checkout.
+6. Stripe confirms an active subscription.
+7. The extension unlocks hosted optimization.
+8. User optimizes prompts without entering their own AI key.
+
+### 6.3 Existing Pro user
+
+1. User logs in.
+2. Extension fetches account and subscription state.
+3. If subscription is active, Pro hosted optimization is enabled.
+4. User can manage billing from the account area.
+
+### 6.4 Inactive subscription user
+
+1. User logs in.
+2. Extension detects the subscription is not active.
+3. Pro hosted optimization is disabled.
+4. User sees a clear status such as renew, update payment method, or resubscribe.
+5. User may continue in BYOK mode if they provide their own OpenAI key.
+
+---
+
+## 7. Subscription states and required behavior
+
+### 7.1 Active subscription
+
+An active subscription unlocks:
+
+- Pro badge/status
+- hosted optimization
+- any future Pro-only hosted features
+
+### 7.2 Inactive subscription
+
+For this product, inactive includes states such as:
+
+- canceled
+- expired
+- unpaid
+- past due
+- incomplete and not recoverable
+- otherwise not entitled to Pro access
+
+Required product behavior:
+
+- do not allow Pro hosted optimization while inactive
+- show a clear billing/access message
+- provide a recovery action such as resubscribe or manage billing
+- do not delete the user's account just because the subscription is inactive
+- allow fallback to BYOK if the user has or adds a valid OpenAI key
+
+### 7.3 Graceful fallback rule
+
+If a formerly Pro user loses active status:
+
+- Pro-only hosted optimization must stop
+- saved Pro account access can remain for account and billing management
+- the extension should offer BYOK as the fallback path instead of turning the whole product into a dead end
+
+---
+
+## 8. Prompt optimization model routing
+
+### 8.1 BYOK routing
+
+When the user is operating in BYOK mode:
+
+- the extension uses the user's OpenAI API key
+- the backend processes the request in BYOK mode
+- the server must not persist that key
+
+### 8.2 Pro routing
+
+When the user is operating in Pro mode:
+
+- the user must be logged in
+- the user must have an active subscription
+- the hosted optimization path uses the app owner's DeepSeek API key
+- the DeepSeek key remains server-side only
+
+### 8.3 Mode separation rules
+
+- a BYOK request must not silently consume the app owner's paid DeepSeek capacity
+- a Pro request must not require the user to add an OpenAI key
+- model/provider selection should be explicit in business logic and observability
+
+---
+
+## 9. High-level architecture
 
 ```txt
 Chrome Extension Popup
         |
-        | User enters raw prompt
+        | User chooses available path
         v
-Extension React UI
-        |
-        | POST /api/prompt
-        | Header: x-openai-api-key
-        v
-Server API
-        |
-        | LangChain prompt chain
-        v
-OpenAI API
-        |
-        | Improved prompt
-        v
-Server API
-        |
-        | JSON response
-        v
-Extension React UI
-        |
-        | Show optimized prompt
-        v
-User copies result
+Mode Routing
+   |                     |
+   | BYOK                | Pro
+   v                     v
+Local OpenAI key         Logged-in account + active subscription
+   |                     |
+   v                     v
+Backend BYOK flow        Backend hosted Pro flow
+   |                     |
+   | uses user's         | uses app owner's
+   | OpenAI key          | DeepSeek key
+   v                     v
+Prompt optimization result returned to extension
 ```
 
 ---
 
-## 6. Extension responsibilities
+## 10. Extension responsibilities
 
 The extension is responsible for:
 
-- Rendering the popup UI
-- Asking the user for an OpenAI API key
-- Saving the API key locally in the browser
-- Letting the user input a raw prompt
-- Sending the raw prompt to the server
-- Sending the OpenAI API key securely to the server for the current request
-- Showing loading, success, and error states
-- Displaying the optimized prompt
-- Allowing the user to copy the optimized prompt
+- rendering Prompt Optimizer
+- letting users start in BYOK mode without login
+- saving the BYOK OpenAI key locally when the user chooses BYOK
+- showing Pro upsell and Pro status
+- supporting login entry points for Pro only
+- launching Stripe subscription flow for Pro
+- showing subscription state clearly
+- routing optimize actions to the correct mode
+- showing loading, success, and error states
+- allowing copy of the optimized prompt
 
 The extension should not:
 
-- Call OpenAI directly
-- Store the API key on any remote server
-- Log the API key
-- Expose the API key in UI after it is saved
-- Store unnecessary user prompt data
-- Require broad Chrome permissions for the first version
+- require login for basic BYOK usage
+- expose the app owner's DeepSeek key
+- expose the user's saved OpenAI key after save
+- log secrets
+- keep Pro enabled when subscription state is inactive
 
 ---
 
-## 7. Server responsibilities
+## 11. Backend responsibilities
 
-The server is responsible for:
+The backend is responsible for:
 
-- Exposing `POST /api/prompt`
-- Validating the request body
-- Reading the OpenAI API key from the request header
-- Using LangChain with the provided OpenAI API key
-- Creating a better prompt from the user's raw prompt
-- Returning the optimized prompt to the extension
-- Handling errors safely
-- Avoiding API key logging
-- Avoiding persistent API key storage
+- handling prompt optimization requests
+- distinguishing BYOK requests from Pro hosted requests
+- validating subscription status before allowing Pro optimization
+- integrating with Stripe for subscription state
+- using the app owner's DeepSeek key only for entitled Pro requests
+- using the user's OpenAI key only for BYOK requests
+- protecting secrets
+- returning user-safe errors
 
-The server should not:
+The backend should not:
 
-- Save the user’s OpenAI API key
-- Log the user’s OpenAI API key
-- Log full prompts in production by default
-- Use the server’s own OpenAI API key for BYOK requests unless fallback mode is explicitly enabled
-- Return raw LangChain/OpenAI error internals to the client
+- persist BYOK OpenAI keys
+- leak billing internals to the extension UI
+- allow inactive subscribers to continue using hosted Pro optimization
+- use the Pro hosted path for anonymous free traffic
 
 ---
 
-## 8. First feature: Prompt Optimizer
+## 12. Prompt Optimizer feature definition
 
 ### User story
 
-As a developer, I want to enter a rough prompt and receive a clearer, more structured prompt so that an AI coding agent can produce better output.
+As a developer, I want to enter a rough prompt and receive a clearer, more structured prompt so that an AI coding tool can do better work.
+
+### Expected improvement behavior
+
+The optimized prompt should:
+
+- preserve the user's original intent
+- clarify the requested role and task
+- add useful structure
+- surface missing context as questions or placeholders
+- avoid invented facts
+- remain practical for coding workflows
 
 ### Example raw prompt
 
@@ -236,1072 +365,330 @@ fix my react code the page slow and state weird
 ```txt
 You are a senior React and TypeScript engineer.
 
-I have a React page with performance issues and inconsistent state behavior. Please help me debug and improve it.
+Help me diagnose a React page with performance issues and inconsistent state behavior.
 
 Please do the following:
 
 1. Identify likely causes of unnecessary re-renders.
-2. Review state management patterns that may cause stale or inconsistent state.
+2. Review state patterns that could lead to stale or inconsistent state.
 3. Suggest specific improvements using React best practices.
-4. Provide corrected TypeScript/React code where possible.
-5. Explain the reasoning behind each change.
-
-Context:
-- Framework: React
-- Language: TypeScript
-- Problem: Page feels slow and state updates behave unexpectedly
-
-Before proposing a solution, ask me for the relevant component code if more context is required.
+4. Provide corrected code where appropriate.
+5. Ask for any missing component or state-management context before making risky assumptions.
 ```
 
 ---
 
-## 9. Extension UI specification
+## 13. UI and UX requirements
 
-### 9.1 Popup layout
+### 13.1 Main product framing
 
-The popup should have a simple vertical layout:
+The popup should make the two product paths obvious:
+
+- `Use your own OpenAI key`
+- `Upgrade to Developer Assistant Pro`
+
+The default emphasis should remain on immediate usability, not on forced account creation.
+
+### 13.2 BYOK state
+
+When no BYOK key is saved:
+
+- show OpenAI key input
+- explain that no login is required for BYOK
+- disable optimize action until required input is present
+
+When a BYOK key is saved:
+
+- mask the key
+- allow replace or remove
+- allow prompt optimization in BYOK mode
+
+### 13.3 Pro state
+
+When logged out:
+
+- show Pro value proposition
+- allow login or sign-up entry point
+- do not block BYOK usage
+
+When logged in with active Pro:
+
+- show active Pro status
+- indicate that hosted optimization is available
+- do not ask for an OpenAI key for Pro usage
+
+When logged in with inactive Pro:
+
+- show inactive/past-due/canceled state clearly
+- disable hosted optimization
+- show recovery action
+- offer BYOK fallback if no active subscription is present
+
+### 13.4 Suggested messaging
+
+BYOK helper text:
 
 ```txt
-+------------------------------------------------+
-| Developer Assistant                            |
-| Prompt Optimizer                               |
-+------------------------------------------------+
-| OpenAI API Key                                 |
-| [••••••••••••••••••••••••] [Save]             |
-| Status: API key saved                          |
-+------------------------------------------------+
-| Raw Prompt                                     |
-| [textarea]                                     |
-|                                                |
-| [Optimize Prompt]                              |
-+------------------------------------------------+
-| Optimized Prompt                               |
-| [textarea/result block]                        |
-|                                                |
-| [Copy Optimized Prompt]                        |
-+------------------------------------------------+
+Use your own OpenAI API key. No account required.
 ```
 
-### 9.2 UI states
-
-#### No API key saved
-
-- Show API key input.
-- Disable `Optimize Prompt`.
-- Show helper text:
+Pro helper text:
 
 ```txt
-Add your OpenAI API key before optimizing prompts.
+Upgrade to Developer Assistant Pro for hosted optimization with no personal AI key required.
 ```
 
-#### API key saved
-
-- Mask the API key.
-- Show status:
+Inactive Pro text:
 
 ```txt
-API key saved locally.
-```
-
-- Show option:
-
-```txt
-Replace API key
-```
-
-#### Empty prompt
-
-- Disable `Optimize Prompt`.
-- Show validation:
-
-```txt
-Please enter a prompt first.
-```
-
-#### Loading
-
-- Disable inputs.
-- Show loading label:
-
-```txt
-Optimizing...
-```
-
-#### Success
-
-- Show optimized prompt.
-- Enable copy button.
-
-#### Error
-
-Show readable error messages:
-
-```txt
-Unable to optimize prompt. Please check your API key and try again.
-```
-
-For rate limit:
-
-```txt
-OpenAI rate limit reached. Please wait and try again.
-```
-
-For server unavailable:
-
-```txt
-Server is unavailable. Please try again later.
+Your Pro subscription is inactive. Renew Pro to use hosted optimization, or continue with your own OpenAI key.
 ```
 
 ---
 
-## 10. Chrome extension permissions
+## 14. Stripe subscription flow
 
-For the first version, avoid page access and content scripts unless needed.
+### 14.1 Checkout flow
 
-Recommended `manifest.json`:
+Required business flow:
 
-```json
-{
-  "manifest_version": 3,
-  "name": "Developer Assistant",
-  "version": "0.1.0",
-  "description": "Developer assistant tools for improving prompts and working with AI agents.",
-  "action": {
-    "default_popup": "index.html",
-    "default_title": "Developer Assistant"
-  },
-  "permissions": ["storage"],
-  "host_permissions": [
-    "http://localhost:3001/*",
-    "https://your-production-domain.com/*"
-  ],
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
-}
-```
+1. User selects Pro.
+2. User signs up or logs in.
+3. User starts Stripe checkout.
+4. Stripe creates or updates the subscription.
+5. Product returns the user to the extension/app flow.
+6. Subscription state is refreshed.
+7. Pro access is granted only after the subscription is confirmed active.
 
-### Permission explanation
+### 14.2 Billing management flow
 
-| Permission | Reason |
-|---|---|
-| `storage` | Store the user's OpenAI API key locally in Chrome storage |
-| `host_permissions` | Allow the extension to call the backend server API |
+The user should be able to:
 
-Do not add permissions such as `tabs`, `activeTab`, `scripting`, or `<all_urls>` unless later features require reading or modifying webpages.
+- view current Pro status
+- open billing management
+- update payment method
+- cancel subscription
+- recover an inactive subscription
+
+### 14.3 Pricing display rule
+
+Every user-facing Pro purchase surface should display the configured monthly Pro price in Australian dollars.
+
+Do not bake a fixed A$ amount into documentation, product logic, or acceptance criteria.
 
 ---
 
-## 11. API key handling
+## 15. Security and privacy requirements
 
-### 11.1 Storage location
+### 15.1 BYOK key handling
 
-The OpenAI API key should be stored in:
+The user's OpenAI API key:
 
-```ts
-chrome.storage.local
-```
+- is stored locally in the extension
+- is only used for BYOK optimization
+- must not be persisted remotely
+- must not be logged in plain text
 
-Recommended storage key:
+### 15.2 Pro key handling
 
-```txt
-openai_api_key
-```
+The app owner's DeepSeek API key:
 
-### 11.2 Why local storage in extension
+- is stored server-side only
+- is never exposed to the extension
+- is used only for active Pro hosted optimization
+- must not be logged in plain text
 
-The API key should be stored locally because:
+### 15.3 Account and billing data
 
-- The user owns the key.
-- The server does not need to persist it.
-- The first version does not require authentication.
-- The user can delete or replace the key anytime.
+The product may store the minimum account and subscription data required for:
 
-### 11.3 API key transport
+- authentication
+- entitlement checks
+- billing support
+- subscription lifecycle handling
 
-When calling the server, the extension sends the key in a request header:
-
-```txt
-x-openai-api-key: sk-...
-```
-
-Example:
-
-```ts
-await fetch(`${serverBaseUrl}/api/prompt`, {
-  method: "POST",
-  headers: {
-    "content-type": "application/json",
-    "x-openai-api-key": apiKey
-  },
-  body: JSON.stringify({
-    prompt: rawPrompt,
-    mode: "developer-agent"
-  })
-});
-```
-
-### 11.4 Server-side handling
-
-The server must:
-
-- Read the key from `x-openai-api-key`
-- Validate that it exists
-- Use it only to initialize the OpenAI/LangChain client for that request
-- Never write it to logs
-- Never save it to a database
-- Never return it in API responses
-
-### 11.5 Security warning
-
-Sending the user’s OpenAI API key to the server means the user must trust the server. For production, the extension should clearly tell the user:
-
-```txt
-Your OpenAI API key is stored locally in your browser and sent to the configured backend only when optimizing a prompt. The backend uses it for the request and does not store it.
-```
-
-### 11.6 Future recommended options
-
-For production SaaS, consider one of these approaches:
-
-1. User authentication + server-owned OpenAI key + quota management
-2. User authentication + encrypted user BYOK storage
-3. User-provided key stored only locally, sent per request
-4. Direct OpenAI call from extension, only if CORS and key exposure risks are acceptable
-
-For this version, use option 3.
+The product should not store more prompt data or billing detail than necessary for the user experience and operations.
 
 ---
 
-## 12. API contract
-
-### 12.1 Endpoint
-
-```txt
-POST /api/prompt
-```
-
-### 12.2 Request headers
-
-```txt
-content-type: application/json
-x-openai-api-key: <user-openai-api-key>
-```
-
-### 12.3 Request body
-
-```ts
-type OptimizePromptRequest = {
-  prompt: string;
-  mode?: "developer-agent";
-  targetAgent?: "generic" | "codex" | "claude-code" | "cursor" | "windsurf" | "chatgpt";
-  outputStyle?: "structured" | "concise" | "detailed";
-};
-```
-
-### 12.4 Example request
-
-```json
-{
-  "prompt": "fix my react code the page slow and state weird",
-  "mode": "developer-agent",
-  "targetAgent": "generic",
-  "outputStyle": "structured"
-}
-```
-
-### 12.5 Success response
-
-```ts
-type OptimizePromptResponse = {
-  optimizedPrompt: string;
-  metadata: {
-    model: string;
-    targetAgent: string;
-    outputStyle: string;
-  };
-};
-```
-
-### 12.6 Example success response
-
-```json
-{
-  "optimizedPrompt": "You are a senior React and TypeScript engineer...\n\nPlease help me debug...",
-  "metadata": {
-    "model": "gpt-4o-mini",
-    "targetAgent": "generic",
-    "outputStyle": "structured"
-  }
-}
-```
-
-### 12.7 Error response
-
-```ts
-type ApiErrorResponse = {
-  error: {
-    code: string;
-    message: string;
-  };
-};
-```
-
-### 12.8 Example error response
-
-```json
-{
-  "error": {
-    "code": "MISSING_OPENAI_API_KEY",
-    "message": "OpenAI API key is required."
-  }
-}
-```
-
----
-
-## 13. Error codes
-
-| Code | HTTP status | Meaning |
-|---|---:|---|
-| `MISSING_OPENAI_API_KEY` | 401 | The request does not include an OpenAI API key |
-| `INVALID_REQUEST` | 400 | Prompt is missing or invalid |
-| `PROMPT_TOO_LONG` | 400 | Prompt exceeds allowed length |
-| `OPENAI_AUTH_FAILED` | 401 | OpenAI rejected the API key |
-| `OPENAI_RATE_LIMITED` | 429 | OpenAI rate limit reached |
-| `OPENAI_REQUEST_FAILED` | 502 | OpenAI request failed |
-| `INTERNAL_SERVER_ERROR` | 500 | Unexpected server error |
-
----
-
-## 14. Prompt improvement behavior
-
-The server should rewrite the prompt using this strategy:
-
-### 14.1 Improvements to apply
-
-The optimized prompt should:
-
-- Clarify the role the AI agent should play
-- Add missing context placeholders
-- Convert vague requests into specific instructions
-- Break work into ordered steps
-- Ask the AI agent to explain reasoning where useful
-- Ask the AI agent to provide code when relevant
-- Ask the AI agent to request missing information instead of guessing
-- Preserve the user’s original intent
-- Avoid adding fake details that the user did not provide
-- Be practical for coding agents
-
-### 14.2 The optimized prompt should include
-
-When relevant:
-
-```txt
-Role
-Task
-Context
-Requirements
-Constraints
-Expected Output
-Files or Code Needed
-Acceptance Criteria
-```
-
-### 14.3 The optimized prompt should not
-
-- Invent project details
-- Add unsupported technologies
-- Add fake file names
-- Change the user's goal
-- Make the prompt unnecessarily long
-- Include private implementation notes
-- Include system-level instructions that pretend to override the AI agent's policies
-
----
-
-## 15. LangChain server implementation specification
-
-### 15.1 Recommended server stack
-
-Assuming the server is a Node.js/NestJS package:
-
-```txt
-apps/server/
-  src/
-    prompt/
-      prompt.module.ts
-      prompt.controller.ts
-      prompt.service.ts
-      dto/
-        optimize-prompt.dto.ts
-```
-
-### 15.2 Controller
-
-The controller should expose:
-
-```txt
-POST /api/prompt
-```
-
-Responsibilities:
-
-- Read `x-openai-api-key`
-- Validate request body
-- Call `PromptService.optimizePrompt`
-- Return JSON response
-
-### 15.3 Service
-
-The service should:
-
-- Create a LangChain OpenAI model instance using the user-provided API key
-- Build the system prompt
-- Pass user input to the model
-- Return a clean optimized prompt
-
-Pseudo-code:
-
-```ts
-async optimizePrompt(input: {
-  rawPrompt: string;
-  apiKey: string;
-  targetAgent?: string;
-  outputStyle?: string;
-}) {
-  const model = new ChatOpenAI({
-    apiKey: input.apiKey,
-    model: "gpt-4o-mini",
-    temperature: 0.2
-  });
-
-  const result = await model.invoke([
-    {
-      role: "system",
-      content: PROMPT_OPTIMIZER_SYSTEM_PROMPT
-    },
-    {
-      role: "user",
-      content: input.rawPrompt
-    }
-  ]);
-
-  return {
-    optimizedPrompt: result.content
-  };
-}
-```
-
-### 15.4 System prompt
-
-Recommended system prompt:
-
-```txt
-You are a senior software engineering prompt architect.
-
-Your task is to rewrite the user's rough prompt into a clearer, more structured, and more effective prompt for an AI coding agent.
-
-Rules:
-- Preserve the user's original intent.
-- Do not invent facts, technologies, file names, APIs, or requirements that the user did not provide.
-- If information is missing, include explicit placeholders or ask the AI agent to request clarification.
-- Make the prompt actionable for coding work.
-- Prefer a structured format with sections.
-- Keep the result practical and not overly verbose.
-- Do not include explanations about how you rewrote the prompt.
-- Return only the improved prompt.
-
-The improved prompt should usually include:
-- Role
-- Task
-- Context
-- Requirements
-- Constraints
-- Expected output
-- Acceptance criteria
-```
-
----
-
-## 16. Extension implementation specification
-
-### 16.1 Vite setup
-
-Create the extension app:
-
-```bash
-cd apps
-npm create vite@latest extension -- --template react-ts
-```
-
-Or with pnpm:
-
-```bash
-cd apps
-pnpm create vite extension --template react-ts
-```
-
-### 16.2 Package scripts
-
-```json
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "package:chrome": "pnpm build && node scripts/package-extension.mjs"
-  }
-}
-```
-
-### 16.3 Vite config
-
-The Vite build should output files into `dist`.
-
-Recommended:
-
-```ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    outDir: "dist",
-    emptyOutDir: true
-  }
-});
-```
-
-### 16.4 Prompt API service
-
-```ts
-export type OptimizePromptRequest = {
-  prompt: string;
-  mode?: "developer-agent";
-  targetAgent?: "generic" | "codex" | "claude-code" | "cursor" | "windsurf" | "chatgpt";
-  outputStyle?: "structured" | "concise" | "detailed";
-};
-
-export type OptimizePromptResponse = {
-  optimizedPrompt: string;
-  metadata?: {
-    model?: string;
-    targetAgent?: string;
-    outputStyle?: string;
-  };
-};
-
-export async function optimizePrompt(params: {
-  serverBaseUrl: string;
-  apiKey: string;
-  payload: OptimizePromptRequest;
-}): Promise<OptimizePromptResponse> {
-  const response = await fetch(`${params.serverBaseUrl}/api/prompt`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-openai-api-key": params.apiKey
-    },
-    body: JSON.stringify(params.payload)
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.error?.message || "Failed to optimize prompt.");
-  }
-
-  return data;
-}
-```
-
-### 16.5 Chrome storage service
-
-```ts
-const OPENAI_API_KEY_STORAGE_KEY = "openai_api_key";
-
-export async function saveOpenAIApiKey(apiKey: string): Promise<void> {
-  await chrome.storage.local.set({
-    [OPENAI_API_KEY_STORAGE_KEY]: apiKey
-  });
-}
-
-export async function getOpenAIApiKey(): Promise<string | null> {
-  const result = await chrome.storage.local.get(OPENAI_API_KEY_STORAGE_KEY);
-  return result[OPENAI_API_KEY_STORAGE_KEY] ?? null;
-}
-
-export async function removeOpenAIApiKey(): Promise<void> {
-  await chrome.storage.local.remove(OPENAI_API_KEY_STORAGE_KEY);
-}
-```
-
----
-
-## 17. Configuration
-
-### 17.1 Extension environment variables
-
-For local development:
-
-```txt
-VITE_SERVER_BASE_URL=http://localhost:3001
-```
-
-For production:
-
-```txt
-VITE_SERVER_BASE_URL=https://api.your-domain.com
-```
-
-### 17.2 Server environment variables
-
-The server does not need a default OpenAI key for BYOK mode.
-
-Recommended:
-
-```txt
-NODE_ENV=development
-PORT=3001
-CORS_ALLOWED_ORIGINS=http://localhost:5173,chrome-extension://<extension-id>
-```
-
-Optional fallback mode:
-
-```txt
-OPENAI_API_KEY=
-ALLOW_SERVER_OPENAI_KEY_FALLBACK=false
-```
-
----
-
-## 18. CORS requirements
-
-The server must allow requests from the Chrome extension origin.
-
-During development, the extension origin changes depending on how it is loaded.
-
-For production, once the extension is published, allow:
-
-```txt
-chrome-extension://<published-extension-id>
-```
-
-For local development, also allow:
-
-```txt
-http://localhost:5173
-```
-
-If loading the built extension through `chrome://extensions`, requests may come from:
-
-```txt
-chrome-extension://<local-extension-id>
-```
-
-For early development, it is acceptable to allow extension origins with a controlled pattern, but production should be stricter.
-
----
-
-## 19. Data privacy requirements
-
-The product should communicate clearly:
-
-- The OpenAI API key is stored locally in the browser.
-- The key is sent to the configured backend only when the user clicks optimize.
-- The backend does not store the key.
-- The raw prompt is sent to the backend for processing.
-- The prompt is sent to OpenAI using the user's key.
-- The extension does not collect browser history.
-- The extension does not read webpage content in the first version.
-
-Production privacy policy should include:
-
-- What data is collected
-- Why it is collected
-- Where it is processed
-- Whether it is stored
-- How the user can remove their key
-- Contact details
-
----
-
-## 20. Logging requirements
-
-### Extension logging
-
-Allowed in development:
-
-```ts
-console.log("Prompt optimized");
-```
-
-Not allowed:
-
-```ts
-console.log(apiKey);
-console.log(fullPrompt);
-```
-
-### Server logging
+## 16. Logging requirements
 
 Allowed:
 
-```txt
-Prompt optimization request received
-Prompt optimization completed
-OpenAI request failed with status 429
-```
+- optimization request received
+- optimization completed
+- Stripe checkout started
+- subscription state refreshed
+- hosted optimization denied because subscription inactive
 
 Not allowed:
 
-```txt
-User API key: sk-...
-Raw prompt: ...
-Optimized prompt: ...
-```
-
-In production, avoid logging full prompt content unless the user explicitly opts in for debugging.
+- raw BYOK OpenAI key
+- app owner's DeepSeek key
+- full payment card data
+- unnecessary full prompt logs in production
 
 ---
 
-## 21. Validation rules
+## 17. Validation and entitlement rules
 
-### API key validation
+### 17.1 BYOK rules
 
-Extension-side:
+- OpenAI key required for BYOK optimization
+- no login required
+- optimize action disabled if key or prompt is missing
 
-- Required before enabling prompt optimization
-- Should start with likely OpenAI key prefix, but do not rely only on prefix
-- Trim whitespace
+### 17.2 Pro rules
 
-Server-side:
+- login required
+- active subscription required
+- optimize action through hosted Pro path disabled when subscription is inactive
+- user should see a clear next step if blocked by billing state
 
-- Required
-- Must be non-empty
-- Should not be logged
-- Invalid keys should return `OPENAI_AUTH_FAILED`
+### 17.3 Prompt validation
 
-### Prompt validation
+For both modes:
 
-Extension-side:
-
-- Required
-- Minimum length: 3 characters
-- Maximum length: 8,000 characters for first version
-
-Server-side:
-
-- Required
-- Must be string
-- Trim whitespace
-- Maximum length: 8,000 characters
+- prompt is required
+- prompt should be trimmed
+- empty or clearly invalid submissions should be rejected
 
 ---
 
-## 22. Rate limiting
+## 18. Error handling UX
 
-For the first version, because the user supplies their own OpenAI key, server-side rate limiting is still useful to prevent abuse.
+The product should present business-readable errors instead of low-level provider detail.
 
-Recommended simple limits:
+Examples:
+
+- missing BYOK key
+- login required for Pro
+- Pro subscription inactive
+- Stripe checkout could not be started
+- hosted optimization temporarily unavailable
+- AI provider request failed
+
+Suggested user-facing messages:
 
 ```txt
-10 requests per minute per extension/client IP
-100 requests per day per extension/client IP
+Add your OpenAI API key to use BYOK mode.
 ```
-
-Future authenticated version can rate limit by user ID.
-
----
-
-## 23. Error handling UX
-
-The extension should map server errors to user-friendly messages.
-
-| Server error | UI message |
-|---|---|
-| `MISSING_OPENAI_API_KEY` | Please add your OpenAI API key first. |
-| `INVALID_REQUEST` | Please enter a valid prompt. |
-| `PROMPT_TOO_LONG` | Your prompt is too long. Please shorten it. |
-| `OPENAI_AUTH_FAILED` | Your OpenAI API key appears to be invalid. |
-| `OPENAI_RATE_LIMITED` | Your OpenAI account is rate limited. Please try again later. |
-| `OPENAI_REQUEST_FAILED` | OpenAI could not process the request. Please try again. |
-| `INTERNAL_SERVER_ERROR` | Something went wrong. Please try again. |
-
----
-
-## 24. Local development workflow
-
-### 24.1 Start server
-
-```bash
-pnpm --filter server dev
-```
-
-Expected server URL:
 
 ```txt
-http://localhost:3001
+Log in to use Developer Assistant Pro.
 ```
-
-### 24.2 Start extension development
-
-```bash
-pnpm --filter extension dev
-```
-
-For normal web development, Vite will run on:
 
 ```txt
-http://localhost:5173
+Your Pro subscription is inactive. Renew billing or continue in BYOK mode.
 ```
-
-However, to test Chrome extension behavior, build and load the extension:
-
-```bash
-pnpm --filter extension build
-```
-
-Then:
-
-1. Open `chrome://extensions`
-2. Enable Developer Mode
-3. Click `Load unpacked`
-4. Select `apps/extension/dist`
-5. Pin the extension
-6. Open the popup
-
-### 24.3 Rebuild after changes
-
-After changing extension source code:
-
-```bash
-pnpm --filter extension build
-```
-
-Then refresh the extension from `chrome://extensions`.
-
----
-
-## 25. Production build workflow
-
-```bash
-pnpm --filter extension build
-pnpm --filter extension package:chrome
-```
-
-Expected output:
 
 ```txt
-apps/extension/release/developer-assistant-extension.zip
+Unable to start checkout right now. Please try again.
 ```
-
-The ZIP should contain:
 
 ```txt
-manifest.json
-index.html
-assets/
-icons/
+Prompt optimization is temporarily unavailable. Please try again later.
 ```
 
-`manifest.json` must be at the root of the ZIP.
+---
+
+## 19. Acceptance criteria
+
+### 19.1 BYOK path
+
+- [ ] A user can use the extension in BYOK mode without creating an account.
+- [ ] A user can enter, save, replace, and remove an OpenAI API key locally.
+- [ ] The saved BYOK key is masked after save.
+- [ ] Prompt optimization works in BYOK mode with the user's OpenAI key.
+- [ ] The product clearly explains that BYOK does not require login.
+
+### 19.2 Pro path
+
+- [ ] A user can log in specifically for Pro access.
+- [ ] A logged-in user can start a Stripe checkout flow for Pro.
+- [ ] The product displays the configured Pro monthly price in A$.
+- [ ] A user with an active Pro subscription can use hosted optimization without entering a personal AI key.
+- [ ] Hosted Pro optimization uses the app owner's DeepSeek key and not a user BYOK key.
+
+### 19.3 Subscription lifecycle
+
+- [ ] The product can distinguish active vs inactive Pro subscription states.
+- [ ] Hosted Pro optimization is blocked when subscription status is inactive.
+- [ ] The product shows a clear recovery action for inactive subscriptions.
+- [ ] A user with an inactive Pro subscription can still use BYOK mode if they add their own OpenAI key.
+
+### 19.4 Security and clarity
+
+- [ ] The user's OpenAI BYOK key is not permanently stored on the server.
+- [ ] The app owner's DeepSeek key is never exposed to the client.
+- [ ] Login is not required for default BYOK usage.
+- [ ] Product messaging clearly differentiates BYOK from Pro.
+- [ ] Production logging avoids secrets.
 
 ---
 
-## 26. Chrome Web Store readiness checklist
+## 20. Non-goals for this commercial version
 
-Before publishing:
+This version should not include:
 
-- [ ] Extension uses Manifest V3
-- [ ] Extension has a clear single purpose
-- [ ] Only required permissions are requested
-- [ ] API key behavior is explained clearly
-- [ ] Privacy policy is available
-- [ ] Screenshots are prepared
-- [ ] Extension icon is prepared in required sizes
-- [ ] Production API URL is configured
-- [ ] Server CORS allows the extension origin
-- [ ] Server does not log API keys
-- [ ] Server does not store API keys
-- [ ] User can remove or replace their API key
-- [ ] Error handling is user-friendly
-- [ ] ZIP package has `manifest.json` at root
-- [ ] Version number is correct
+- forcing all users to register before first use
+- annual plans
+- team plans
+- seat management
+- credits marketplace
+- multiple Pro tiers
+- deep technical provider controls exposed to users
+- large prompt history platform features
 
 ---
 
-## 27. Acceptance criteria for first version
+## 21. Revised roadmap
 
-### API key
+### Phase 1: Dual-mode foundation
 
-- [ ] User can enter an OpenAI API key.
-- [ ] User can save the API key.
-- [ ] User can replace the API key.
-- [ ] User can remove the API key.
-- [ ] The key is stored in `chrome.storage.local`.
-- [ ] The key is not shown in plain text after saving.
+- launch default BYOK OpenAI flow
+- add Pro account login flow
+- add Stripe monthly subscription in A$
+- gate hosted optimization behind active Pro
+- support inactive-subscription fallback to BYOK
 
-### Prompt optimizer
+### Phase 2: Conversion and retention
 
-- [ ] User can enter a raw prompt.
-- [ ] `Optimize Prompt` is disabled when there is no API key.
-- [ ] `Optimize Prompt` is disabled when the prompt is empty.
-- [ ] Extension calls `POST /api/prompt`.
-- [ ] Extension sends `x-openai-api-key`.
-- [ ] Server uses LangChain and OpenAI.
-- [ ] Server returns `optimizedPrompt`.
-- [ ] Extension displays the optimized prompt.
-- [ ] User can copy the optimized prompt.
-- [ ] Loading state works.
-- [ ] Error state works.
+- improve Pro upgrade surfaces
+- add billing management polish
+- improve subscription-state messaging
+- add recovery flows for failed payments and cancellations
 
-### Security
+### Phase 3: Product expansion
 
-- [ ] Server does not persist OpenAI API key.
-- [ ] Server does not log OpenAI API key.
-- [ ] Extension only requests required Chrome permissions.
-- [ ] Extension does not read current webpage content in first version.
-- [ ] API calls use HTTPS in production.
+- add more prompt templates
+- add agent-specific optimization styles
+- add saved prompt history
+- add reusable personal presets
+
+### Phase 4: Premium expansion
+
+- add more hosted Pro-only developer workflows
+- add higher-value premium features beyond prompt optimization
+- evaluate team and workspace features only after the single-user Pro model is stable
 
 ---
 
-## 28. Future feature roadmap
+## 22. Open questions
 
-### Version 0.2
+These should be decided before implementation is considered final:
 
-- Add prompt templates:
-  - Bug fix
-  - Code review
-  - Refactor
-  - Test generation
-  - System design
-  - Debug production issue
-
-### Version 0.3
-
-- Add target agent selector:
-  - Generic AI agent
-  - Codex
-  - Claude Code
-  - Cursor
-  - Windsurf
-  - ChatGPT
-
-### Version 0.4
-
-- Add prompt history saved locally.
-
-### Version 0.5
-
-- Add current webpage context extraction.
-
-This will require new permissions:
-
-```json
-{
-  "permissions": ["activeTab", "scripting"]
-}
-```
-
-### Version 0.6
-
-- Add GitHub integration.
-- Generate pull request review prompts.
-- Generate issue investigation prompts.
-
-### Version 1.0
-
-- Add user accounts.
-- Add server-side prompt history.
-- Add usage limits.
-- Add team templates.
-- Add subscription plans.
+1. Should inactive Pro users keep access to any non-hosted premium UI, or should all Pro UI collapse to billing recovery plus BYOK fallback?
+2. Should the extension remember the user's last-selected mode between BYOK and Pro?
+3. Should there be a free logged-in account state for future non-Pro features, or should auth continue to exist only for Pro?
+4. Should Pro include quotas or fair-use protections later, even though the initial offer is a simple monthly plan?
 
 ---
 
-## 29. Suggested implementation order
+## 23. Recommended positioning
 
-1. Create `apps/extension`.
-2. Add Manifest V3 config.
-3. Build static React popup.
-4. Add API key form.
-5. Add Chrome storage service.
-6. Add raw prompt textarea.
-7. Add API client for `POST /api/prompt`.
-8. Add server endpoint.
-9. Add LangChain/OpenAI service.
-10. Add error handling.
-11. Add copy-to-clipboard.
-12. Add production config.
-13. Add package script for Chrome ZIP.
-14. Test locally through `chrome://extensions`.
-15. Prepare Chrome Web Store listing.
-
----
-
-## 30. Open questions
-
-These can be decided during implementation:
-
-1. Should the extension support multiple AI providers later?
-2. Should the server support both BYOK and server-owned API key modes?
-3. Should optimized prompts be saved locally?
-4. Should users be able to choose the target AI agent?
-5. Should the extension support project-specific prompt profiles?
-6. Should prompt templates be hardcoded first or loaded from the server?
-7. Should prompt optimization stream back token-by-token or return only final output?
-8. Should the extension include a side panel in addition to popup UI?
-
----
-
-## 31. Recommended first version name
-
-Product name options:
+Recommended product message:
 
 ```txt
-Developer Assistant
-PromptPilot
-AgentPrompt
-PromptForge
-DevPrompt Helper
-CodePrompt Assistant
+Start free with your own OpenAI key. Upgrade to Developer Assistant Pro for hosted optimization with no personal AI key required.
 ```
-
-Recommended first version:
-
-```txt
-Developer Assistant
-```
-
-Reason:
-
-- Broad enough for future features
-- Not limited to prompt optimization
-- Clear for Chrome Web Store listing
-- Suitable for developer-focused tooling
-
----
-
-## 32. Summary
-
-The first version should be a focused Chrome extension with one useful feature:
-
-```txt
-Raw developer prompt → Server /api/prompt → LangChain + OpenAI → Better AI-agent prompt
-```
-
-The extension should be simple, secure, and easy to extend. The OpenAI API key should stay under user control, stored locally in the browser, and sent to the backend only when the user explicitly optimizes a prompt.
-
-The implementation should prioritize:
-
-1. Clear UX
-2. Minimal Chrome permissions
-3. Safe API key handling
-4. Clean API contract
-5. Extensible architecture for future developer-assistant features

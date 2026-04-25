@@ -1,5 +1,6 @@
 import { useReducer } from 'react';
 import { optimizePrompt } from '@/shared/api';
+import type { OptimizeAccess } from '@/shared/model/access';
 import {
   type OptimizePromptRequest,
   type OptimizePromptResponse,
@@ -68,7 +69,7 @@ function reducer(
 }
 
 interface RunOptimizePromptParams {
-  apiKey: string;
+  access: OptimizeAccess;
   payload: OptimizePromptRequest;
   serverBaseUrl: string;
 }
@@ -95,7 +96,7 @@ export function useOptimizePrompt() {
       }
     },
     async runOptimizePrompt({
-      apiKey,
+      access,
       payload,
       serverBaseUrl,
     }: RunOptimizePromptParams) {
@@ -103,7 +104,7 @@ export function useOptimizePrompt() {
 
       try {
         const result = await optimizePrompt({
-          apiKey,
+          access,
           payload,
           serverBaseUrl,
         });

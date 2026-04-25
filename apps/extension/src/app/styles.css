@@ -198,6 +198,46 @@ button {
   letter-spacing: 0.16em;
 }
 
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.segment-button {
+  min-height: 44px;
+  border: 1px solid rgba(29, 42, 51, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.segment-button.is-active {
+  border-color: rgba(15, 118, 110, 0.36);
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--accent-strong);
+}
+
+.pro-card {
+  border: 1px solid rgba(29, 42, 51, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.54);
+  padding: 14px;
+}
+
+.price-band {
+  display: grid;
+  gap: 4px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(217, 119, 6, 0.12));
+  padding: 14px;
+}
+
+.price-band strong {
+  font-size: 20px;
+}
+
 .helper-row,
 .selector-grid,
 .button-row,

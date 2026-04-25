@@ -56,6 +56,24 @@ export async function removeStoredString(key: string): Promise<void> {
   emitLocalStorageChange(key, null);
 }
 
+export async function getStoredJson<T>(key: string): Promise<T | null> {
+  const value = await getStoredString(key);
+
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function setStoredJson(key: string, value: unknown): Promise<void> {
+  await setStoredString(key, JSON.stringify(value));
+}
+
 export function subscribeToStoredString(
   key: string,
   listener: StorageListener,

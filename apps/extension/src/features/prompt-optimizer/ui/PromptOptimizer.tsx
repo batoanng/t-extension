@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { env } from '@/shared/config';
+import { getAccessGate } from '@/shared/model/access';
 import {
   DEFAULT_MODE,
   DEFAULT_OUTPUT_STYLE,
@@ -13,18 +14,9 @@ import {
 } from '@/shared/model/prompt';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { useOptimizePrompt } from '../model/useOptimizePrompt';
+import { useAccessStore } from '@/features/access/model/useAccessStore';
 
-interface PromptOptimizerProps {
-  apiKey: string | null;
-  hasApiKey: boolean;
-  isStorageReady: boolean;
-}
-
-export function PromptOptimizer({
-  apiKey,
-  hasApiKey,
-  isStorageReady,
-}: PromptOptimizerProps) {
+export function PromptOptimizer() {
   const [rawPrompt, setRawPrompt] = useState('');
   const [targetAgent, setTargetAgent] = useState<PromptTargetAgent>(
     DEFAULT_TARGET_AGENT,
@@ -32,6 +24,7 @@ export function PromptOptimizer({
   const [outputStyle, setOutputStyle] = useState<PromptOutputStyle>(
     DEFAULT_OUTPUT_STYLE,
   );
+  const accessStore = useAccessStore();
   const {
     copyOptimizedPrompt,
     copyStatus,
@@ -42,20 +35,28 @@ export function PromptOptimizer({
   } = useOptimizePrompt();
 
   const promptValidationMessage = getPromptValidationMessage(rawPrompt);
+  const accessGate = getAccessGate(accessStore);
   const canOptimize =
-    isStorageReady &&
-    hasApiKey &&
+    accessStore.ready &&
+    accessGate.kind === 'allowed' &&
     promptValidationMessage == null &&
     status !== 'loading';
 
   async function handleOptimizeClick() {
-    if (!apiKey || !canOptimize) {
+    if (!canOptimize) {
+      return;
+    }
+
+    const access = await accessStore.prepareOptimizeAccess();
+
+    if (!access) {
       return;
     }
 
     await runOptimizePrompt({
-      apiKey,
+      access,
       payload: {
+        credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
         mode: DEFAULT_MODE,
         outputStyle,
         prompt: rawPrompt,
@@ -86,7 +87,7 @@ export function PromptOptimizer({
           </label>
           <textarea
             className="text-area"
-            disabled={!isStorageReady || status === 'loading'}
+            disabled={!accessStore.ready || status === 'loading'}
             id="raw-prompt"
             maxLength={MAX_PROMPT_LENGTH}
             onChange={(event) => {
@@ -144,9 +145,9 @@ export function PromptOptimizer({
           </div>
         </div>
 
-        {!hasApiKey ? (
+        {accessGate.kind === 'blocked' ? (
           <InlineMessage>
-            Add your OpenAI API key before optimizing prompts.
+            {getAccessGateMessage(accessGate.reason)}
           </InlineMessage>
         ) : null}
 
@@ -202,6 +203,7 @@ export function PromptOptimizer({
         {result ? (
           <div className="meta-row" aria-label="Optimization metadata">
             <span className="meta-pill">{result.metadata.model}</span>
+            <span className="meta-pill">{result.metadata.provider}</span>
             <span className="meta-pill">{result.metadata.targetAgent}</span>
             <span className="meta-pill">{result.metadata.outputStyle}</span>
           </div>
@@ -209,4 +211,29 @@ export function PromptOptimizer({
       </div>
     </section>
   );
+}
+
+function getAccessGateMessage(
+  reason:
+    | 'loading'
+    | 'missing-api-key'
+    | 'sign-in-required'
+    | 'subscription-required'
+    | 'subscription-loading'
+    | 'offering-unavailable',
+) {
+  switch (reason) {
+    case 'loading':
+      return 'Preparing your optimization access...';
+    case 'missing-api-key':
+      return 'Add your OpenAI API key before optimizing prompts.';
+    case 'sign-in-required':
+      return 'Sign in to Developer Assistant Pro before using hosted optimization.';
+    case 'subscription-required':
+      return 'Subscribe to Developer Assistant Pro or switch back to your own API key.';
+    case 'subscription-loading':
+      return 'Checking your Developer Assistant Pro subscription...';
+    case 'offering-unavailable':
+      return 'Developer Assistant Pro is unavailable right now. You can still use your own API key.';
+  }
 }

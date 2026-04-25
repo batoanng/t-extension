@@ -4,6 +4,8 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../modules/auth/auth.service';
+import { SubscriptionService } from '../modules/subscription';
 import { PromptFeatureModule } from '../modules/prompt';
 import {
   PROMPT_MODEL_FACTORY,
@@ -13,6 +15,8 @@ import {
 describe('prompt routes', () => {
   let app: NestFastifyApplication;
   const invokeMock = vi.fn();
+  const authenticateAccessToken = vi.fn();
+  const assertHostedOptimizationAccess = vi.fn();
 
   beforeAll(async () => {
     process.env.OPENAI_MODEL = 'gpt-4o-mini';
@@ -29,6 +33,14 @@ describe('prompt routes', () => {
           invoke: invokeMock,
         })) satisfies PromptModelFactory,
       )
+      .overrideProvider(AuthService)
+      .useValue({
+        authenticateAccessToken,
+      })
+      .overrideProvider(SubscriptionService)
+      .useValue({
+        assertHostedOptimizationAccess,
+      })
       .compile();
 
     app = moduleRef.createNestApplication<NestFastifyApplication>(
@@ -48,6 +60,11 @@ describe('prompt routes', () => {
 
   beforeEach(() => {
     invokeMock.mockReset();
+    authenticateAccessToken.mockReset();
+    assertHostedOptimizationAccess.mockReset();
+    assertHostedOptimizationAccess.mockResolvedValue({
+      status: 'active',
+    });
   });
 
   it('returns 401 when the API key header is missing', async () => {
@@ -110,8 +127,10 @@ describe('prompt routes', () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.payload)).toEqual({
       metadata: {
+        credentialMode: 'byok',
         model: 'gpt-4o-mini',
         outputStyle: 'structured',
+        provider: 'openai-byok',
         targetAgent: 'codex',
       },
       optimizedPrompt: 'You are a senior React engineer...',
@@ -139,6 +158,25 @@ describe('prompt routes', () => {
       error: {
         code: 'OPENAI_AUTH_FAILED',
         message: 'OpenAI rejected the provided API key.',
+      },
+    });
+  });
+
+  it('returns 401 when subscription mode is requested without a bearer token', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/prompt/optimize',
+      payload: {
+        credentialMode: 'subscription',
+        prompt: 'Fix this page',
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(JSON.parse(response.payload)).toEqual({
+      error: {
+        code: 'AUTH_REQUIRED',
+        message: 'Please sign in to use Developer Assistant Pro.',
       },
     });
   });

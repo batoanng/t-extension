@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { MagicLinkMailerService } from './magic-link-mailer.service';
 
 @Module({
   imports: [
@@ -23,7 +24,12 @@ import { JwtStrategy } from './jwt.strategy';
     CommonModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenGuard, JwtStrategy],
-  exports: [AuthService, JwtModule, PassportModule],
+  providers: [
+    AuthService,
+    AccessTokenGuard,
+    JwtStrategy,
+    MagicLinkMailerService,
+  ],
+  exports: [AccessTokenGuard, AuthService, JwtModule, PassportModule],
 })
 export class AuthModule {}

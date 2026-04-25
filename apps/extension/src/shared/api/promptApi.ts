@@ -1,3 +1,4 @@
+import type { OptimizeAccess } from '@/shared/model/access';
 import {
   ApiErrorResponseSchema,
   type OptimizePromptRequest,
@@ -11,7 +12,7 @@ import {
 
 interface OptimizePromptParams {
   serverBaseUrl: string;
-  apiKey: string;
+  access: OptimizeAccess;
   payload: OptimizePromptRequest;
   signal?: AbortSignal;
 }
@@ -40,21 +41,30 @@ async function readJson(response: Response): Promise<unknown> {
 
 export async function optimizePrompt({
   serverBaseUrl,
-  apiKey,
+  access,
   payload,
   signal,
 }: OptimizePromptParams): Promise<OptimizePromptResponse> {
-  const request = OptimizePromptRequestSchema.parse(payload);
+  const request = OptimizePromptRequestSchema.parse({
+    ...payload,
+    credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
+  });
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+  };
+
+  if (access.kind === 'byok') {
+    headers['x-openai-api-key'] = access.apiKey.trim();
+  } else {
+    headers.authorization = `Bearer ${access.accessToken}`;
+  }
 
   let response: Response;
 
   try {
     response = await fetch(joinUrl(serverBaseUrl, '/api/v1/prompt/optimize'), {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-openai-api-key': apiKey.trim(),
-      },
+      headers,
       body: JSON.stringify(request),
       signal,
     });

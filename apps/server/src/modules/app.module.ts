@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common';
 import { CacheFeatureModule } from './cache';
 import { PromptFeatureModule } from './prompt';
+import { SubscriptionModule } from './subscription';
 import { config } from '../types/config';
 
 function toRedisUrl(): string {
@@ -29,6 +30,7 @@ function toRedisUrl(): string {
     }),
     CacheFeatureModule,
     PromptFeatureModule,
+    SubscriptionModule,
   ],
 })
 export class ApplicationModule {}

@@ -3,6 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
+import type { Config } from '../../types/config';
+import { Service } from '../tokens';
+import { SubscriptionService } from '../subscription';
 import { PromptHttpException } from './prompt.errors';
 import type { PromptOptimizeRequest } from './prompt.schemas';
 
@@ -38,6 +41,7 @@ export interface PromptModel {
 export type PromptModelFactory = (input: {
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }) => PromptModel;
 
 export const PROMPT_MODEL_FACTORY = Symbol('PROMPT_MODEL_FACTORY');
@@ -121,6 +125,9 @@ export class PromptService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     @Inject(PROMPT_MODEL_FACTORY)
     private readonly createPromptModel: PromptModelFactory,
+    @Inject(Service.CONFIG) private readonly config: Config,
+    @Inject(SubscriptionService)
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   private async getRateLimitCount(cacheKey: string) {
@@ -151,14 +158,14 @@ export class PromptService {
   }
 
   private async enforceWindowLimit(
-    clientIp: string,
+    clientIdentifier: string,
     limit: number,
     windowMs: number,
     scope: 'minute' | 'day',
   ) {
     const now = Date.now();
     const windowId = Math.floor(now / windowMs);
-    const cacheKey = `prompt-rate:${scope}:${clientIp}:${windowId}`;
+    const cacheKey = `prompt-rate:${scope}:${clientIdentifier}:${windowId}`;
     const currentCount = await this.getRateLimitCount(cacheKey);
 
     if (currentCount >= limit) {
@@ -173,25 +180,33 @@ export class PromptService {
     await this.setRateLimitCount(cacheKey, currentCount + 1, ttlMs);
   }
 
-  private async enforceRateLimit(clientIp: string) {
+  private async enforceRateLimit(clientIdentifier: string) {
     await this.enforceWindowLimit(
-      clientIp,
+      clientIdentifier,
       promptMinuteLimit,
       minuteWindowMs,
       'minute',
     );
-    await this.enforceWindowLimit(clientIp, promptDayLimit, dayWindowMs, 'day');
+    await this.enforceWindowLimit(
+      clientIdentifier,
+      promptDayLimit,
+      dayWindowMs,
+      'day',
+    );
   }
 
   async optimizePrompt(input: PromptOptimizeRequest & {
-    apiKey: string;
     clientIp: string;
+    apiKey?: string;
+    userId?: string;
   }) {
-    await this.enforceRateLimit(input.clientIp || 'unknown');
+    const executionContext = await this.resolveExecutionContext(input);
+    await this.enforceRateLimit(executionContext.rateLimitId);
 
     const model = this.createPromptModel({
-      apiKey: input.apiKey,
-      model: defaultModel,
+      apiKey: executionContext.apiKey,
+      baseUrl: executionContext.baseUrl,
+      model: executionContext.model,
     });
 
     const result = await model.invoke([
@@ -211,10 +226,78 @@ export class PromptService {
     return {
       optimizedPrompt,
       metadata: {
-        model: defaultModel,
+        credentialMode: input.credentialMode,
+        model: executionContext.model,
+        provider: executionContext.provider,
         targetAgent: input.targetAgent,
         outputStyle: input.outputStyle,
       },
+    };
+  }
+
+  private async resolveExecutionContext(
+    input: PromptOptimizeRequest & {
+      clientIp: string;
+      apiKey?: string;
+      userId?: string;
+    },
+  ) {
+    if (input.credentialMode === 'subscription') {
+      if (!input.userId) {
+        throw new PromptHttpException(401, 'AUTH_REQUIRED', 'Unauthorized');
+      }
+
+      if (!this.config.DEEPSEEK_API_KEY) {
+        throw new PromptHttpException(
+          503,
+          'HOSTED_OPTIMIZATION_UNAVAILABLE',
+          'Hosted optimization is unavailable right now.',
+        );
+      }
+
+      const access = await this.subscriptionService.assertHostedOptimizationAccess(
+        input.userId,
+      );
+
+      if (access.status === 'missing') {
+        throw new PromptHttpException(
+          403,
+          'SUBSCRIPTION_REQUIRED',
+          'An active Developer Assistant Pro subscription is required.',
+        );
+      }
+
+      if (access.status === 'inactive') {
+        throw new PromptHttpException(
+          403,
+          'SUBSCRIPTION_INACTIVE',
+          'Your Developer Assistant Pro subscription is inactive.',
+        );
+      }
+
+      return {
+        apiKey: this.config.DEEPSEEK_API_KEY,
+        baseUrl: this.config.DEEPSEEK_BASE_URL,
+        model: this.config.DEEPSEEK_MODEL,
+        provider: 'deepseek-subscription' as const,
+        rateLimitId: `user:${input.userId}`,
+      };
+    }
+
+    if (!input.apiKey) {
+      throw new PromptHttpException(
+        401,
+        'MISSING_OPENAI_API_KEY',
+        'OpenAI API key is required.',
+      );
+    }
+
+    return {
+      apiKey: input.apiKey,
+      baseUrl: undefined,
+      model: defaultModel,
+      provider: 'openai-byok' as const,
+      rateLimitId: `ip:${input.clientIp || 'unknown'}`,
     };
   }
 }

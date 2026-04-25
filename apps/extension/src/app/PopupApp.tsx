@@ -1,16 +1,7 @@
-import { ApiKeySection } from '@/features/api-key/ui/ApiKeySection';
-import { useSavedApiKey } from '@/features/api-key/model/useSavedApiKey';
+import { AccessPanel } from '@/features/access/ui/AccessPanel';
 import { PromptOptimizer } from '@/features/prompt-optimizer/ui/PromptOptimizer';
 
 export function PopupApp() {
-  const {
-    apiKey,
-    hasApiKey,
-    isReady,
-    removeApiKey,
-    saveApiKey,
-  } = useSavedApiKey();
-
   return (
     <main className="popup-shell">
       <section className="app-frame">
@@ -23,18 +14,9 @@ export function PopupApp() {
           </p>
         </header>
 
-        <ApiKeySection
-          hasApiKey={hasApiKey}
-          isReady={isReady}
-          onRemoveApiKey={removeApiKey}
-          onSaveApiKey={saveApiKey}
-        />
+        <AccessPanel />
 
-        <PromptOptimizer
-          apiKey={apiKey}
-          hasApiKey={hasApiKey}
-          isStorageReady={isReady}
-        />
+        <PromptOptimizer />
       </section>
     </main>
   );

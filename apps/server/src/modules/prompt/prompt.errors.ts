@@ -2,12 +2,16 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
 
 export const promptErrorCodes = [
+  'AUTH_REQUIRED',
   'MISSING_OPENAI_API_KEY',
   'INVALID_REQUEST',
   'PROMPT_TOO_LONG',
   'OPENAI_AUTH_FAILED',
   'OPENAI_RATE_LIMITED',
   'OPENAI_REQUEST_FAILED',
+  'SUBSCRIPTION_REQUIRED',
+  'SUBSCRIPTION_INACTIVE',
+  'HOSTED_OPTIMIZATION_UNAVAILABLE',
   'INTERNAL_SERVER_ERROR',
 ] as const;
 
@@ -65,6 +69,8 @@ function getErrorStatus(error: unknown): number | null {
 
 export function getPromptErrorMessage(code: PromptErrorCode): string {
   switch (code) {
+    case 'AUTH_REQUIRED':
+      return 'Please sign in to use Developer Assistant Pro.';
     case 'MISSING_OPENAI_API_KEY':
       return 'OpenAI API key is required.';
     case 'INVALID_REQUEST':
@@ -77,6 +83,12 @@ export function getPromptErrorMessage(code: PromptErrorCode): string {
       return 'OpenAI rate limit reached. Please wait and try again.';
     case 'OPENAI_REQUEST_FAILED':
       return 'OpenAI could not process the request. Please try again.';
+    case 'SUBSCRIPTION_REQUIRED':
+      return 'An active Developer Assistant Pro subscription is required.';
+    case 'SUBSCRIPTION_INACTIVE':
+      return 'Your Developer Assistant Pro subscription is inactive.';
+    case 'HOSTED_OPTIMIZATION_UNAVAILABLE':
+      return 'Hosted optimization is unavailable right now.';
     case 'INTERNAL_SERVER_ERROR':
       return 'Something went wrong. Please try again.';
   }

@@ -70,6 +70,8 @@ export async function createApp(): Promise<NestFastifyApplication> {
       'Authorization',
       'X-OpenAI-Api-Key',
       'x-openai-api-key',
+      'Stripe-Signature',
+      'stripe-signature',
       'X-Request-Id',
     ],
   });
@@ -77,6 +79,9 @@ export async function createApp(): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     ApplicationModule,
     adapter,
+    {
+      rawBody: true,
+    },
   );
 
   app.setGlobalPrefix(`api/v${config.API_VERSION || API_DEFAULT_VERSION}`);
