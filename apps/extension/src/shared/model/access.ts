@@ -1,6 +1,13 @@
-export const accessModeValues = ['byok', 'pro'] as const;
+export enum AccessMode {
+  Byok = 'byok',
+  Pro = 'pro',
+}
 
-export type AccessMode = (typeof accessModeValues)[number];
+export enum MagicLinkStatus {
+  Pending = 'pending',
+  Completed = 'completed',
+  Expired = 'expired',
+}
 
 export interface StoredAuthSession {
   accessToken: string;
@@ -111,7 +118,7 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     };
   }
 
-  if (snapshot.mode === 'byok') {
+  if (snapshot.mode === AccessMode.Byok) {
     if (!snapshot.byok.apiKey) {
       return {
         kind: 'blocked',

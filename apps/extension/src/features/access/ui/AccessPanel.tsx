@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ApiKeySection } from '@/features/api-key/ui/ApiKeySection';
+import { AccessMode } from '@/shared/model/access';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { useAccessStore } from '../model/useAccessStore';
 
@@ -39,18 +40,18 @@ export function AccessPanel() {
       <div className="stack">
         <div className="segmented-control" role="tablist" aria-label="Access mode">
           <button
-            className={`segment-button${mode === 'byok' ? ' is-active' : ''}`}
+            className={`segment-button${mode === AccessMode.Byok ? ' is-active' : ''}`}
             onClick={() => {
-              void setMode('byok');
+              void setMode(AccessMode.Byok);
             }}
             type="button"
           >
             Use my own key
           </button>
           <button
-            className={`segment-button${mode === 'pro' ? ' is-active' : ''}`}
+            className={`segment-button${mode === AccessMode.Pro ? ' is-active' : ''}`}
             onClick={() => {
-              void setMode('pro');
+              void setMode(AccessMode.Pro);
             }}
             type="button"
           >
@@ -58,7 +59,7 @@ export function AccessPanel() {
           </button>
         </div>
 
-        {mode === 'byok' ? (
+        {mode === AccessMode.Byok ? (
           <ApiKeySection
             hasApiKey={Boolean(byok.apiKey)}
             isReady={ready}

@@ -19,6 +19,7 @@ import type {
   AuthUser,
   MagicLinkStatusResponse,
 } from './types/auth.types';
+import { MagicLinkStatus } from './types/auth.types';
 
 const refreshTokenPayloadSchema = z
   .object({
@@ -132,19 +133,19 @@ export class AuthService {
 
     if (magicLinkRequest.expiresAt.getTime() <= Date.now()) {
       return {
-        status: 'expired',
+        status: MagicLinkStatus.Expired,
       };
     }
 
     if (!magicLinkRequest.verifiedAt) {
       return {
-        status: 'pending',
+        status: MagicLinkStatus.Pending,
       };
     }
 
     if (magicLinkRequest.exchangedAt) {
       return {
-        status: 'expired',
+        status: MagicLinkStatus.Expired,
       };
     }
 
@@ -169,7 +170,7 @@ export class AuthService {
     });
 
     return {
-      status: 'completed',
+      status: MagicLinkStatus.Completed,
       auth,
     };
   }

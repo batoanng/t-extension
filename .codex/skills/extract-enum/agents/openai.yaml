@@ -1,0 +1,4 @@
+interface:
+  display_name: "Extract Enum"
+  short_description: "Refactor repeated domain values into safe TypeScript enums"
+  default_prompt: "Use $extract-enum to review this TypeScript code, decide whether repeated values should become a shared string enum or stay a union type, and replace unsafe magic strings accordingly."

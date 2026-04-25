@@ -1,4 +1,5 @@
 import type {
+  MagicLinkStatus,
   StoredAuthSession,
   SubscriptionOffering,
   SubscriptionStatus,
@@ -11,7 +12,7 @@ interface RequestMagicLinkResponse {
 
 interface MagicLinkStatusResponse {
   auth?: AuthResponse;
-  status: 'pending' | 'completed' | 'expired';
+  status: MagicLinkStatus;
 }
 
 interface AuthResponse {

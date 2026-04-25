@@ -10,8 +10,11 @@ import {
   refreshAuthSession,
   requestMagicLink,
 } from '@/shared/api';
-import type {
+import {
   AccessMode,
+  MagicLinkStatus,
+} from '@/shared/model/access';
+import type {
   AccessSnapshot,
   OptimizeAccess,
   StoredAuthSession,
@@ -36,7 +39,7 @@ const initialSnapshot: AccessSnapshot = {
   byok: {
     apiKey: null,
   },
-  mode: 'byok',
+  mode: AccessMode.Byok,
   offering: {
     data: null,
     errorMessage: null,
@@ -112,7 +115,7 @@ async function hydrateSnapshot() {
     byok: {
       apiKey,
     },
-    mode: mode === 'pro' ? 'pro' : 'byok',
+    mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
     offering: currentSnapshot.offering,
     pro: {
       auth: authSession
@@ -154,7 +157,7 @@ function ensureHydrated() {
     (mode) => {
       updateSnapshot((snapshot) => ({
         ...snapshot,
-        mode: mode === 'pro' ? 'pro' : 'byok',
+        mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
       }));
     },
   );
@@ -394,11 +397,11 @@ async function pollMagicLinkStatus(requestId: string, email: string) {
       serverBaseUrl: env.serverBaseUrl,
     });
 
-    if (result.status === 'pending') {
+    if (result.status === MagicLinkStatus.Pending) {
       return;
     }
 
-    if (result.status === 'expired' || !result.auth) {
+    if (result.status === MagicLinkStatus.Expired || !result.auth) {
       stopMagicLinkPolling();
       updateSnapshot((snapshot) => ({
         ...snapshot,
@@ -461,7 +464,7 @@ async function setMode(mode: AccessMode) {
     mode,
   }));
 
-  if (mode === 'pro') {
+  if (mode === AccessMode.Pro) {
     void refreshOffering();
 
     if (currentAuthSession) {
@@ -566,7 +569,7 @@ async function openCustomerPortal() {
 }
 
 async function prepareOptimizeAccess(): Promise<OptimizeAccess | null> {
-  if (currentSnapshot.mode === 'byok') {
+  if (currentSnapshot.mode === AccessMode.Byok) {
     if (!currentSnapshot.byok.apiKey) {
       return null;
     }

@@ -1,3 +1,9 @@
+export enum MagicLinkStatus {
+  Pending = 'pending',
+  Completed = 'completed',
+  Expired = 'expired',
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -13,6 +19,6 @@ export interface AuthResponse {
 }
 
 export interface MagicLinkStatusResponse {
-  status: 'pending' | 'completed' | 'expired';
+  status: MagicLinkStatus;
   auth?: AuthResponse;
 }
