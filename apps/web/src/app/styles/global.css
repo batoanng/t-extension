@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "@batoanng/tailwind-config/styles.css";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+    background:
+      radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 40%),
+      linear-gradient(180deg, #f8fbff 0%, #eef2ff 100%);
+  }
+
+  a {
+    @apply text-sky-700 transition hover:text-sky-900;
+  }
+}
+
+@layer components {
+  .page {
+    @apply grid min-h-screen place-items-center px-6 py-10;
+  }
+
+  .hero {
+    @apply max-w-3xl rounded-3xl border border-slate-200 bg-white/90 p-10 shadow-xl shadow-slate-900/5;
+  }
+
+  .eyebrow {
+    @apply mb-3 text-sm font-semibold uppercase tracking-[0.08em] text-sky-700;
+  }
+
+  .hero h1 {
+    @apply mb-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-6xl;
+  }
+
+  .hero p {
+    @apply text-lg leading-8 text-slate-600;
+  }
+}

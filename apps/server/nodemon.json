@@ -1,0 +1,6 @@
+{
+  "watch": ["src", "prisma"],
+  "ext": "ts,js,prisma",
+  "ignore": ["dist", "src/**/*.test.ts"],
+  "exec": "node ./index.js"
+}
