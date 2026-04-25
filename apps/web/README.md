@@ -88,3 +88,8 @@ screen.
 - `npm run preview`
 - `npm run lint`
 - `npm run test`
+
+## Environment
+
+- `VITE_APP_PORT` controls the Vite dev server port.
+- `npm run dev` defaults to port `3001` when `VITE_APP_PORT` is not set.
