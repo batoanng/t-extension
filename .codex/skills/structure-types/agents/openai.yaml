@@ -1,0 +1,4 @@
+interface:
+  display_name: "Structure Types"
+  short_description: "Organize TypeScript types intentionally"
+  default_prompt: "Use $structure-types to organize this TypeScript code so shared and feature-local types are placed intentionally, duplication is reduced, and imports stay easy to follow."

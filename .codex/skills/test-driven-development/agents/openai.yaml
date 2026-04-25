@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test-Driven Development"
+  short_description: "Build features test first"
+  default_prompt: "Use $test-driven-development when implementing this feature or function so the work follows a red-green-refactor loop with tests written before production code."

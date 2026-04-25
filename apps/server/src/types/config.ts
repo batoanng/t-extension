@@ -96,8 +96,8 @@ export const configSchema = z.object({
   REDIS_PORT: z.coerce.number().int().positive(),
   REDIS_USERNAME: optionalStringSchema,
   REDIS_PASSWORD: optionalStringSchema,
-  OPENAI_API_KEY: z.string().min(1),
-  OPENAI_MODEL: z.string().min(1),
+  OPENAI_API_KEY: optionalStringSchema,
+  OPENAI_MODEL: z.string().trim().min(1).default('gpt-4o-mini'),
 });
 
 type BaseConfig = z.infer<typeof configSchema>;

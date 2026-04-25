@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Inject,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -25,7 +26,10 @@ import { AccessTokenGuard } from './guards/access-token.guard';
 @Controller('auth')
 @ApiTags('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService)
+    private readonly authService: AuthService,
+  ) {}
 
   @Post('login')
   @HttpCode(200)

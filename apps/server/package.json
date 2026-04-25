@@ -12,10 +12,13 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "lint": "eslint -c .eslintrc.cjs --ext .ts 'src/**/*.ts'",
+    "type-check": "tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.68",
+    "@langchain/openai": "^0.6.16",
     "@batoanng/types": "^0.5.0",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.2.1",

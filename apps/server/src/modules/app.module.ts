@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { createKeyv } from '@keyv/redis';
+import KeyvRedis from '@keyv/redis';
 import { CacheModule } from '@nestjs/cache-manager';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common';
 import { CacheFeatureModule } from './cache';
-import { LlmFeatureModule } from './llm';
+import { PromptFeatureModule } from './prompt';
 import { config } from '../types/config';
 
 function toRedisUrl(): string {
@@ -22,15 +22,13 @@ function toRedisUrl(): string {
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => {
-        const keyv = createKeyv(toRedisUrl());
-
         return {
-          stores: [keyv],
+          stores: [new KeyvRedis(toRedisUrl())],
         };
       },
     }),
     CacheFeatureModule,
-    LlmFeatureModule,
+    PromptFeatureModule,
   ],
 })
 export class ApplicationModule {}

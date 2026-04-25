@@ -13,22 +13,5 @@ services:
     networks:
       - appnet
 
-  web-app:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    image: local/web:dev
-    environment:
-      NODE_ENV: production
-    env_file:
-      - ./apps/web/.env.production
-    ports:
-      - "3001:3001"
-    depends_on:
-      server:
-        condition: service_started
-    networks:
-      - appnet
-
 networks:
   appnet:

@@ -35,6 +35,7 @@ const refreshTokenPayloadSchema = z
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(JwtService)
     private readonly jwtService: JwtService,
     @Inject(Service.CONFIG) private readonly config: Config,
   ) {}

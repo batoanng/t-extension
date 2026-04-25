@@ -14,7 +14,7 @@ import { ApplicationModule } from './modules/app.module';
 import { CommonModule, LogInterceptor } from './modules/common';
 import { config } from './types/config';
 
-const API_DEFAULT_PORT = 3001;
+const API_DEFAULT_PORT = 3000;
 const API_DEFAULT_VERSION = 1;
 const SWAGGER_PREFIX = '/docs';
 const SWAGGER_TITLE = "nest API";
@@ -65,7 +65,13 @@ export async function createApp(): Promise<NestFastifyApplication> {
     origin: origins.length > 0 ? origins : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-OpenAI-Api-Key',
+      'x-openai-api-key',
+      'X-Request-Id',
+    ],
   });
 
   const app = await NestFactory.create<NestFastifyApplication>(
