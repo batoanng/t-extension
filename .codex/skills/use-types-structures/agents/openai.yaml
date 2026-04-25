@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Types Structures"
+  short_description: "Choose repo data structures intentionally"
+  default_prompt: "Use $use-types-structures when implementing or reviewing this feature so the solution reuses @batoanng/types where appropriate and explains the expected complexity of the critical path."

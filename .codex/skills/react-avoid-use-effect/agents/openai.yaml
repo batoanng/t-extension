@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avoid useEffect"
+  short_description: "Refactor unnecessary React Effects"
+  default_prompt: "Use $react-avoid-use-effect to review this React component and replace unnecessary useEffect usage with render-time derivation, event handlers, keys, lifted state, or other React-first patterns."
