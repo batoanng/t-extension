@@ -39,7 +39,17 @@ body,
   min-height: 100%;
 }
 
+html,
 body {
+  min-width: 420px;
+}
+
+body,
+#root {
+  width: 420px;
+}
+
+#root {
   min-width: 420px;
 }
 
@@ -55,6 +65,7 @@ button {
 }
 
 .popup-shell {
+  width: 100%;
   min-height: 100vh;
   padding: 18px;
 }

@@ -5,7 +5,7 @@ Chrome extension popup built with React, TypeScript, and Vite.
 ## Scripts
 
 - `pnpm dev` runs the popup preview locally on `http://localhost:3001` by default.
-- `pnpm build` builds the popup and generates `dist/manifest.json` plus placeholder icons.
+- `pnpm build` builds the popup and generates `dist/manifest.json` plus extension icons from `assets/logo.png`.
 - `pnpm package:chrome` zips the built extension to `release/developer-assistant-extension.zip`.
 - `pnpm lint`
 - `pnpm test`

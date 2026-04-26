@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
@@ -6,14 +6,12 @@ import { loadEnv } from 'vite';
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const distDir = resolve(rootDir, 'dist');
 const iconDir = resolve(distDir, 'icons');
+const sourceLogoPath = resolve(rootDir, 'assets', 'logo.png');
 const mode = process.env.MODE ?? process.env.NODE_ENV ?? 'production';
 const env = loadEnv(mode, rootDir, '');
 const packageJson = JSON.parse(
   await readFile(resolve(rootDir, 'package.json'), 'utf8'),
 );
-
-const placeholderPngBase64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn14U0AAAAASUVORK5CYII=';
 
 function getHostPermissions(serverBaseUrl) {
   const origin = new URL(serverBaseUrl).origin;
@@ -30,6 +28,11 @@ const manifest = {
   action: {
     default_popup: 'index.html',
     default_title: 'Developer Assistant',
+    default_icon: {
+      16: 'icons/icon16.png',
+      48: 'icons/icon48.png',
+      128: 'icons/icon128.png',
+    },
   },
   permissions: ['storage'],
   host_permissions: getHostPermissions(
@@ -50,10 +53,8 @@ await writeFile(
   'utf8',
 );
 
-const iconBuffer = Buffer.from(placeholderPngBase64, 'base64');
-
 await Promise.all([
-  writeFile(resolve(iconDir, 'icon16.png'), iconBuffer),
-  writeFile(resolve(iconDir, 'icon48.png'), iconBuffer),
-  writeFile(resolve(iconDir, 'icon128.png'), iconBuffer),
+  copyFile(sourceLogoPath, resolve(iconDir, 'icon16.png')),
+  copyFile(sourceLogoPath, resolve(iconDir, 'icon48.png')),
+  copyFile(sourceLogoPath, resolve(iconDir, 'icon128.png')),
 ]);
