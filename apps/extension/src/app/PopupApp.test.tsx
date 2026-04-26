@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __resetAccessStoreForTests } from '@/features/access/model/useAccessStore';
@@ -12,17 +13,23 @@ import { __resetSavedApiKeyStoreForTests } from '@/features/api-key/model/useSav
 
 import { PopupApp } from './PopupApp';
 
-function createJsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    headers: {
-      'content-type': 'application/json',
-    },
+vi.mock('axios', () => ({
+  default: {
+    isAxiosError: (error: unknown) =>
+      Boolean((error as { isAxiosError?: boolean } | null)?.isAxiosError),
+    request: vi.fn(),
+  },
+}));
+
+function createAxiosResponse<T>(data: T, status = 200) {
+  return {
+    data,
     status,
-  });
+  };
 }
 
 function createOfferingResponse() {
-  return createJsonResponse({
+  return createAxiosResponse({
     currency: 'AUD',
     enabled: true,
     plan: 'pro',
@@ -37,8 +44,8 @@ describe('PopupApp', () => {
     __resetSavedApiKeyStoreForTests();
     __resetAccessStoreForTests();
     vi.useRealTimers();
-    vi.unstubAllGlobals();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createOfferingResponse()));
+    vi.clearAllMocks();
+    vi.mocked(axios.request).mockResolvedValue(createOfferingResponse());
     Object.defineProperty(globalThis.navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -148,11 +155,11 @@ describe('PopupApp', () => {
   });
 
   it('saves an API key and optimizes a prompt', async () => {
-    const fetchMock = vi.mocked(global.fetch);
-    fetchMock
+    const requestMock = vi.mocked(axios.request);
+    requestMock
       .mockResolvedValueOnce(createOfferingResponse())
       .mockResolvedValueOnce(
-        createJsonResponse({
+        createAxiosResponse({
           optimizedPrompt: 'Structured result',
           metadata: {
             credentialMode: 'byok',
@@ -188,15 +195,15 @@ describe('PopupApp', () => {
       expect(screen.getByDisplayValue('Structured result')).toBeInTheDocument();
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(requestMock).toHaveBeenCalledTimes(2);
   });
 
   it('re-enables optimization and badges the access panel when the saved API key is rejected', async () => {
-    const fetchMock = vi.mocked(global.fetch);
-    fetchMock
+    const requestMock = vi.mocked(axios.request);
+    requestMock
       .mockResolvedValueOnce(createOfferingResponse())
       .mockResolvedValueOnce(
-        createJsonResponse(
+        createAxiosResponse(
           {
             error: {
               code: 'OPENAI_AUTH_FAILED',
@@ -243,24 +250,24 @@ describe('PopupApp', () => {
 
   it('times out a stalled optimize request and restores the button state', async () => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn();
-    fetchMock.mockResolvedValueOnce(createOfferingResponse());
-    fetchMock.mockImplementationOnce(async (_input, init) => {
-      const signal = init?.signal as AbortSignal | undefined;
+    const requestMock = vi.mocked(axios.request);
+    requestMock.mockResolvedValueOnce(createOfferingResponse());
+    requestMock.mockImplementationOnce(async (config) => {
+      const signal = config.signal as AbortSignal | undefined;
 
-      return await new Promise<Response>((_resolve, reject) => {
+      return await new Promise((_resolve, reject) => {
         signal?.addEventListener(
           'abort',
           () => {
-            reject(
-              new DOMException('The operation was aborted.', 'AbortError'),
-            );
+            reject({
+              code: 'ERR_CANCELED',
+              isAxiosError: true,
+            });
           },
           { once: true },
         );
       });
     });
-    vi.stubGlobal('fetch', fetchMock);
 
     render(<PopupApp />);
 

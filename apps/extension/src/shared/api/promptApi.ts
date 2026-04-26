@@ -10,33 +10,13 @@ import {
   isPromptErrorCode,
 } from '@/shared/model/prompt';
 
+import { isCanceledRequest, requestJson } from './httpClient';
+
 interface OptimizePromptParams {
   serverBaseUrl: string;
   access: OptimizeAccess;
   payload: OptimizePromptRequest;
   signal?: AbortSignal;
-}
-
-function joinUrl(baseUrl: string, pathname: string): string {
-  return new URL(pathname, `${baseUrl.replace(/\/+$/, '')}/`).toString();
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-
-  if (text.trim().length === 0) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new PromptApiError(
-      getPromptApiErrorMessage('INVALID_RESPONSE'),
-      'INVALID_RESPONSE',
-      response.status,
-    );
-  }
 }
 
 export async function optimizePrompt({
@@ -59,17 +39,19 @@ export async function optimizePrompt({
     headers.authorization = `Bearer ${access.accessToken}`;
   }
 
-  let response: Response;
+  let response: Awaited<ReturnType<typeof requestJson<OptimizePromptResponse>>>;
 
   try {
-    response = await fetch(joinUrl(serverBaseUrl, '/api/v1/prompt/optimize'), {
-      method: 'POST',
+    response = await requestJson<OptimizePromptResponse>({
+      baseUrl: serverBaseUrl,
+      data: request,
       headers,
-      body: JSON.stringify(request),
+      method: 'POST',
+      pathname: '/api/v1/prompt/optimize',
       signal,
     });
-  } catch {
-    if (signal?.aborted) {
+  } catch (error) {
+    if (isCanceledRequest(error, signal)) {
       throw new PromptApiError(
         getPromptApiErrorMessage('REQUEST_TIMEOUT'),
         'REQUEST_TIMEOUT',
@@ -82,9 +64,9 @@ export async function optimizePrompt({
     );
   }
 
-  const data = await readJson(response);
+  const data = response.data;
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300) {
     const parsedError = ApiErrorResponseSchema.safeParse(data);
 
     if (!parsedError.success) {

@@ -5,6 +5,8 @@ import type {
   SubscriptionStatus,
 } from '@/shared/model/access';
 
+import { requestJson } from './httpClient';
+
 interface RequestMagicLinkResponse {
   authRequestId: string;
   expiresInSeconds: number;
@@ -27,20 +29,6 @@ interface AuthResponse {
   };
 }
 
-function joinUrl(baseUrl: string, pathname: string) {
-  return new URL(pathname, `${baseUrl.replace(/\/+$/, '')}/`).toString();
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-
-  if (text.trim().length === 0) {
-    return null;
-  }
-
-  return JSON.parse(text);
-}
-
 function authHeaders(accessToken: string) {
   return {
     authorization: `Bearer ${accessToken}`,
@@ -59,53 +47,58 @@ function toStoredAuthSession(response: AuthResponse): StoredAuthSession {
 }
 
 export async function fetchSubscriptionOffering(serverBaseUrl: string) {
-  const response = await fetch(joinUrl(serverBaseUrl, '/api/v1/subscription/offering'));
+  const response = await requestJson<SubscriptionOffering>({
+    baseUrl: serverBaseUrl,
+    pathname: '/api/v1/subscription/offering',
+  });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to load subscription offering.');
   }
 
-  return (await readJson(response)) as SubscriptionOffering;
+  return response.data;
 }
 
 export async function requestMagicLink(input: {
   email: string;
   serverBaseUrl: string;
 }) {
-  const response = await fetch(joinUrl(input.serverBaseUrl, '/api/v1/auth/login'), {
-    method: 'POST',
+  const response = await requestJson<RequestMagicLinkResponse>({
+    baseUrl: input.serverBaseUrl,
+    data: {
+      email: input.email,
+    },
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      email: input.email,
-    }),
+    method: 'POST',
+    pathname: '/api/v1/auth/login',
   });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to send sign-in link.');
   }
 
-  return (await readJson(response)) as RequestMagicLinkResponse;
+  return response.data;
 }
 
 export async function fetchMagicLinkStatus(input: {
   requestId: string;
   serverBaseUrl: string;
 }) {
-  const url = new URL(
-    joinUrl(input.serverBaseUrl, '/api/v1/auth/magic-link-status'),
-  );
+  const response = await requestJson<MagicLinkStatusResponse>({
+    baseUrl: input.serverBaseUrl,
+    params: {
+      requestId: input.requestId,
+    },
+    pathname: '/api/v1/auth/magic-link-status',
+  });
 
-  url.searchParams.set('requestId', input.requestId);
-
-  const response = await fetch(url.toString());
-
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to confirm sign-in.');
   }
 
-  const data = (await readJson(response)) as MagicLinkStatusResponse;
+  const data = response.data;
 
   return {
     ...data,
@@ -117,35 +110,39 @@ export async function refreshAuthSession(input: {
   refreshToken: string;
   serverBaseUrl: string;
 }) {
-  const response = await fetch(joinUrl(input.serverBaseUrl, '/api/v1/auth/refresh'), {
-    method: 'POST',
+  const response = await requestJson<AuthResponse>({
+    baseUrl: input.serverBaseUrl,
+    data: {
+      refreshToken: input.refreshToken,
+    },
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      refreshToken: input.refreshToken,
-    }),
+    method: 'POST',
+    pathname: '/api/v1/auth/refresh',
   });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to refresh session.');
   }
 
-  return toStoredAuthSession((await readJson(response)) as AuthResponse);
+  return toStoredAuthSession(response.data);
 }
 
 export async function logout(input: {
   refreshToken: string;
   serverBaseUrl: string;
 }) {
-  await fetch(joinUrl(input.serverBaseUrl, '/api/v1/auth/logout'), {
-    method: 'POST',
+  await requestJson({
+    baseUrl: input.serverBaseUrl,
+    data: {
+      refreshToken: input.refreshToken,
+    },
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      refreshToken: input.refreshToken,
-    }),
+    method: 'POST',
+    pathname: '/api/v1/auth/logout',
   });
 }
 
@@ -153,55 +150,51 @@ export async function fetchMySubscription(input: {
   accessToken: string;
   serverBaseUrl: string;
 }) {
-  const response = await fetch(joinUrl(input.serverBaseUrl, '/api/v1/subscription/me'), {
+  const response = await requestJson<SubscriptionStatus>({
+    baseUrl: input.serverBaseUrl,
     headers: authHeaders(input.accessToken),
+    pathname: '/api/v1/subscription/me',
   });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to load subscription status.');
   }
 
-  return (await readJson(response)) as SubscriptionStatus;
+  return response.data;
 }
 
 export async function createCheckoutSession(input: {
   accessToken: string;
   serverBaseUrl: string;
 }) {
-  const response = await fetch(
-    joinUrl(input.serverBaseUrl, '/api/v1/subscription/checkout-session'),
-    {
-      method: 'POST',
-      headers: authHeaders(input.accessToken),
-    },
-  );
+  const response = await requestJson<{ url: string }>({
+    baseUrl: input.serverBaseUrl,
+    headers: authHeaders(input.accessToken),
+    method: 'POST',
+    pathname: '/api/v1/subscription/checkout-session',
+  });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to open checkout.');
   }
 
-  return (await readJson(response)) as {
-    url: string;
-  };
+  return response.data;
 }
 
 export async function createCustomerPortalSession(input: {
   accessToken: string;
   serverBaseUrl: string;
 }) {
-  const response = await fetch(
-    joinUrl(input.serverBaseUrl, '/api/v1/subscription/customer-portal'),
-    {
-      method: 'POST',
-      headers: authHeaders(input.accessToken),
-    },
-  );
+  const response = await requestJson<{ url: string }>({
+    baseUrl: input.serverBaseUrl,
+    headers: authHeaders(input.accessToken),
+    method: 'POST',
+    pathname: '/api/v1/subscription/customer-portal',
+  });
 
-  if (!response.ok) {
+  if (response.status < 200 || response.status >= 300 || !response.data) {
     throw new Error('Unable to open billing portal.');
   }
 
-  return (await readJson(response)) as {
-    url: string;
-  };
+  return response.data;
 }
