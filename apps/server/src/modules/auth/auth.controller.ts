@@ -204,10 +204,16 @@ export class AuthController {
 function getRequestBaseUrl(request: FastifyRequest) {
   const protocolHeader = request.headers['x-forwarded-proto'];
   const hostHeader = request.headers['x-forwarded-host'] ?? request.headers.host;
+  const host =
+    typeof hostHeader === 'string'
+      ? hostHeader
+      : Array.isArray(hostHeader)
+        ? hostHeader[0]
+        : 'localhost';
   const protocol =
     typeof protocolHeader === 'string' && protocolHeader.length > 0
       ? protocolHeader
       : request.protocol;
 
-  return `${protocol}://${hostHeader}`;
+  return `${protocol}://${host}`;
 }

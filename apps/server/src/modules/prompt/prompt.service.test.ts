@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from '../../types/config';
 import { PromptHttpException } from './prompt.errors';
 import {
-  PROMPT_MODEL_FACTORY,
   PromptService,
   type PromptModelFactory,
 } from './prompt.service';
@@ -44,10 +43,10 @@ function createCacheManager() {
   const store = new Map<string, number>();
 
   return {
-    async get<T>(key: string) {
+    get<T>(key: string) {
       return (store.get(key) as T | undefined) ?? null;
     },
-    async set(key: string, value: number) {
+    set(key: string, value: number) {
       store.set(key, value);
     },
   };

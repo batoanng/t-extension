@@ -22,7 +22,7 @@ function toRedisUrl(): string {
     AuthModule,
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => {
+      useFactory: () => {
         return {
           stores: [new KeyvRedis(toRedisUrl())],
         };

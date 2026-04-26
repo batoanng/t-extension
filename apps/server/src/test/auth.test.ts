@@ -11,6 +11,10 @@ import { AuthService } from '../modules/auth/auth.service';
 import { AccessTokenGuard } from '../modules/auth/guards/access-token.guard';
 import { JwtStrategy } from '../modules/auth/jwt.strategy';
 import { MagicLinkMailerService } from '../modules/auth/magic-link-mailer.service';
+import type {
+  AuthResponse,
+  MagicLinkStatusResponse,
+} from '../modules/auth/types/auth.types';
 import { PrismaService } from '../modules/common/provider';
 import { Service } from '../modules/tokens';
 import type { Config } from '../types/config';
@@ -47,27 +51,75 @@ const authTestConfig: Config = Object.freeze({
   SWAGGER_ENABLE: false,
 });
 
+interface MagicLinkRecord {
+  id: string;
+  authRequestId: string;
+  email: string;
+  tokenHash: string;
+  expiresAt: Date;
+  consumedAt?: Date;
+  verifiedAt?: Date;
+  exchangedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface UserRecord {
+  id: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface LoginResponse {
+  authRequestId: string;
+  expiresInSeconds: number;
+}
+
+interface LogoutResponse {
+  success: true;
+}
+
+interface MagicLinkEmail {
+  email: string;
+  verifyUrl: string;
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function readOptionalDate(value: unknown): Date | undefined {
+  return value instanceof Date ? value : undefined;
+}
+
 function createPrismaMock() {
   let magicLinkId = 0;
   let userId = 0;
-  const magicLinks = new Map<string, any>();
-  const users = new Map<string, any>();
+  const magicLinks = new Map<string, MagicLinkRecord>();
+  const users = new Map<string, UserRecord>();
 
   return {
     magicLinkToken: {
-      async create({ data }: { data: Record<string, unknown> }) {
+      create({ data }: { data: Record<string, unknown> }) {
         magicLinkId += 1;
-        const record = {
+        const record: MagicLinkRecord = {
           id: `magic_${magicLinkId}`,
-          ...data,
+          authRequestId: String(data.authRequestId),
+          email: String(data.email),
+          tokenHash: String(data.tokenHash),
+          expiresAt: data.expiresAt as Date,
+          consumedAt: data.consumedAt as Date | undefined,
+          verifiedAt: data.verifiedAt as Date | undefined,
+          exchangedAt: data.exchangedAt as Date | undefined,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
 
-        magicLinks.set(record.id as string, record);
+        magicLinks.set(record.id, record);
         return record;
       },
-      async findUnique({ where }: { where: Record<string, unknown> }) {
+      findUnique({ where }: { where: Record<string, unknown> }) {
         for (const record of magicLinks.values()) {
           if (
             ('authRequestId' in where &&
@@ -81,31 +133,42 @@ function createPrismaMock() {
 
         return null;
       },
-      async update({
+      update({
         data,
         where,
       }: {
         data: Record<string, unknown>;
         where: Record<string, unknown>;
       }) {
-        const existing = await this.findUnique({ where });
+        const existing = this.findUnique({ where });
 
         if (!existing) {
           throw new Error('Magic link not found');
         }
 
-        const updated = {
-          ...(existing as Record<string, unknown>),
-          ...data,
+        const updated: MagicLinkRecord = {
+          ...existing,
+          authRequestId:
+            readOptionalString(data.authRequestId) ?? existing.authRequestId,
+          email: readOptionalString(data.email) ?? existing.email,
+          tokenHash: readOptionalString(data.tokenHash) ?? existing.tokenHash,
+          expiresAt: readOptionalDate(data.expiresAt) ?? existing.expiresAt,
+          consumedAt:
+            readOptionalDate(data.consumedAt) ?? existing.consumedAt,
+          verifiedAt:
+            readOptionalDate(data.verifiedAt) ?? existing.verifiedAt,
+          exchangedAt:
+            readOptionalDate(data.exchangedAt) ?? existing.exchangedAt,
+          createdAt: existing.createdAt,
           updatedAt: new Date(),
-        } as unknown as Record<string, unknown> & { id: string };
+        };
 
-        magicLinks.set(updated.id as string, updated);
+        magicLinks.set(updated.id, updated);
         return updated;
       },
     },
     user: {
-      async findUnique({ where }: { where: Record<string, unknown> }) {
+      findUnique({ where }: { where: Record<string, unknown> }) {
         for (const record of users.values()) {
           if (
             ('id' in where && record.id === where.id) ||
@@ -117,7 +180,7 @@ function createPrismaMock() {
 
         return null;
       },
-      async upsert({
+      upsert({
         create,
         where,
       }: {
@@ -125,21 +188,21 @@ function createPrismaMock() {
         update: Record<string, unknown>;
         where: Record<string, unknown>;
       }) {
-        const existing = await this.findUnique({ where });
+        const existing = this.findUnique({ where });
 
         if (existing) {
           return existing;
         }
 
         userId += 1;
-        const record = {
+        const record: UserRecord = {
           id: `user_${userId}`,
-          ...create,
+          email: String(create.email),
           createdAt: new Date(),
           updatedAt: new Date(),
         };
 
-        users.set(record.id as string, record);
+        users.set(record.id, record);
         return record;
       },
     },
@@ -147,8 +210,8 @@ function createPrismaMock() {
 }
 
 const prismaMock = createPrismaMock();
-const sendMagicLinkMock = vi.fn(
-  async (_input: { email: string; verifyUrl: string }) => undefined,
+const sendMagicLinkMock = vi.fn<(message: MagicLinkEmail) => Promise<void>>(
+  () => Promise.resolve(),
 );
 
 @Module({
@@ -219,20 +282,13 @@ describe('auth routes', () => {
         host: 'localhost:3000',
       },
     });
-    const loginPayload = JSON.parse(loginResponse.payload) as {
-      authRequestId: string;
-      expiresInSeconds: number;
-    };
+    const loginPayload = JSON.parse(loginResponse.payload) as LoginResponse;
 
     expect(loginResponse.statusCode).toBe(200);
     expect(loginPayload.expiresInSeconds).toBe(900);
     expect(sendMagicLinkMock).toHaveBeenCalledTimes(1);
 
-    const sentEmail = sendMagicLinkMock.mock.calls[0]?.[0] as
-      | {
-          verifyUrl: string;
-        }
-      | undefined;
+    const sentEmail = sendMagicLinkMock.mock.calls.at(0)?.[0];
 
     expect(sentEmail?.verifyUrl).toBeTruthy();
 
@@ -252,34 +308,44 @@ describe('auth routes', () => {
       method: 'GET',
       url: `/api/v1/auth/magic-link-status?requestId=${loginPayload.authRequestId}`,
     });
-    const statusPayload = JSON.parse(statusResponse.payload);
+    const statusPayload = JSON.parse(
+      statusResponse.payload,
+    ) as MagicLinkStatusResponse;
 
     expect(statusResponse.statusCode).toBe(200);
     expect(statusPayload.status).toBe('completed');
-    expect(statusPayload.auth.tokenType).toBe('Bearer');
+
+    const authPayload = statusPayload.auth;
+
+    expect(authPayload).toBeDefined();
+    if (!authPayload) {
+      throw new Error('Expected auth payload for completed magic-link status');
+    }
+
+    expect(authPayload.tokenType).toBe('Bearer');
 
     const meResponse = await app.inject({
       method: 'GET',
       url: '/api/v1/auth/me',
       headers: {
-        authorization: `Bearer ${statusPayload.auth.accessToken}`,
+        authorization: `Bearer ${authPayload.accessToken}`,
       },
     });
 
     expect(meResponse.statusCode).toBe(200);
     expect(JSON.parse(meResponse.payload)).toEqual({
-      email: statusPayload.auth.user.email,
-      id: statusPayload.auth.user.id,
+      email: authPayload.user.email,
+      id: authPayload.user.id,
     });
 
     const refreshResponse = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
       payload: {
-        refreshToken: statusPayload.auth.refreshToken,
+        refreshToken: authPayload.refreshToken,
       },
     });
-    const refreshPayload = JSON.parse(refreshResponse.payload);
+    const refreshPayload = JSON.parse(refreshResponse.payload) as AuthResponse;
 
     expect(refreshResponse.statusCode).toBe(200);
     expect(refreshPayload.tokenType).toBe('Bearer');
@@ -293,6 +359,8 @@ describe('auth routes', () => {
     });
 
     expect(logoutResponse.statusCode).toBe(200);
-    expect(JSON.parse(logoutResponse.payload)).toEqual({ success: true });
+    expect(JSON.parse(logoutResponse.payload) as LogoutResponse).toEqual({
+      success: true,
+    });
   });
 });

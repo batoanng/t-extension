@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-function trimString(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
 function toOptionalTrimmedString(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
@@ -66,7 +62,6 @@ function parseDurationToSeconds(fieldName: string, value: string): number {
   return amount * unitToSeconds[unit as keyof typeof unitToSeconds];
 }
 
-const stringSchema = z.preprocess(trimString, z.string().min(1));
 const optionalStringSchema = z.preprocess(
   toOptionalTrimmedString,
   z.string().min(1).optional(),

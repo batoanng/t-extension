@@ -29,7 +29,7 @@ describe('prompt routes', () => {
     })
       .overrideProvider(PROMPT_MODEL_FACTORY)
       .useValue(
-        ((_) => ({
+        (() => ({
           invoke: invokeMock,
         })) satisfies PromptModelFactory,
       )

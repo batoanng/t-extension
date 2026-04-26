@@ -38,6 +38,8 @@ const accessTokenPayloadSchema = z
   .passthrough();
 
 type SignAsyncOptions = NonNullable<Parameters<JwtService['signAsync']>[1]>;
+type AccessTokenPayload = z.infer<typeof accessTokenPayloadSchema>;
+type RefreshTokenPayload = z.infer<typeof refreshTokenPayloadSchema>;
 
 @Injectable()
 export class AuthService {
@@ -114,10 +116,12 @@ export class AuthService {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    return {
+    const authenticatedUser: AuthUser = {
       id: persistedUser.id,
       email: persistedUser.email,
     };
+
+    return authenticatedUser;
   }
 
   async getMagicLinkStatus(requestId: string): Promise<MagicLinkStatusResponse> {
@@ -212,11 +216,14 @@ export class AuthService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(accessToken, {
+      const payload: unknown = await this.jwtService.verifyAsync(accessToken, {
         secret: this.config.ACCESS_SECRET,
       });
 
-      return accessTokenPayloadSchema.parse(payload) as AuthenticatedUser;
+      const authenticatedUser: AccessTokenPayload =
+        accessTokenPayloadSchema.parse(payload);
+
+      return authenticatedUser;
     } catch {
       throw new UnauthorizedException('Unauthorized');
     }
@@ -260,9 +267,11 @@ export class AuthService {
     };
   }
 
-  private async verifyRefreshToken(refreshToken: string) {
+  private async verifyRefreshToken(
+    refreshToken: string,
+  ): Promise<RefreshTokenPayload> {
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
+      const payload: unknown = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.config.REFRESH_SECRET,
       });
 

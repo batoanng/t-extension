@@ -129,7 +129,7 @@ export function toPromptHttpException(error: unknown): PromptHttpException {
 
   const status = getErrorStatus(error);
 
-  if (status === HttpStatus.UNAUTHORIZED) {
+  if (status === 401) {
     return new PromptHttpException(
       HttpStatus.UNAUTHORIZED,
       'OPENAI_AUTH_FAILED',
@@ -137,7 +137,7 @@ export function toPromptHttpException(error: unknown): PromptHttpException {
     );
   }
 
-  if (status === HttpStatus.TOO_MANY_REQUESTS) {
+  if (status === 429) {
     return new PromptHttpException(
       HttpStatus.TOO_MANY_REQUESTS,
       'OPENAI_RATE_LIMITED',
@@ -145,7 +145,7 @@ export function toPromptHttpException(error: unknown): PromptHttpException {
     );
   }
 
-  if (typeof status === 'number' && status >= HttpStatus.BAD_REQUEST) {
+  if (typeof status === 'number' && status >= 400) {
     return new PromptHttpException(
       HttpStatus.BAD_GATEWAY,
       'OPENAI_REQUEST_FAILED',

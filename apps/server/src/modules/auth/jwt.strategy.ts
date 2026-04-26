@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: unknown): AuthenticatedUser {
-    const validatedPayload = jwtPayloadSchema.parse(payload) as JwtPayload;
+    const validatedPayload: JwtPayload = jwtPayloadSchema.parse(payload);
 
     return {
       sub: validatedPayload.sub,
