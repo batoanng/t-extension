@@ -1,11 +1,15 @@
 import { useReducer } from 'react';
+
 import { optimizePrompt } from '@/shared/api';
 import type { OptimizeAccess } from '@/shared/model/access';
 import {
   type OptimizePromptRequest,
   type OptimizePromptResponse,
+  type PromptApiClientErrorCode,
   PromptApiError,
 } from '@/shared/model/prompt';
+
+const optimizeRequestTimeoutMs = 30_000;
 
 interface OptimizePromptState {
   copyStatus: 'idle' | 'success' | 'error';
@@ -74,6 +78,16 @@ interface RunOptimizePromptParams {
   serverBaseUrl: string;
 }
 
+type RunOptimizePromptResult =
+  | {
+      ok: true;
+      result: OptimizePromptResponse;
+    }
+  | {
+      errorCode: PromptApiClientErrorCode;
+      ok: false;
+    };
+
 export function useOptimizePrompt() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -99,18 +113,30 @@ export function useOptimizePrompt() {
       access,
       payload,
       serverBaseUrl,
-    }: RunOptimizePromptParams) {
+    }: RunOptimizePromptParams): Promise<RunOptimizePromptResult> {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, optimizeRequestTimeoutMs);
+
       dispatch({ type: 'optimize-started' });
 
       try {
         const result = await optimizePrompt({
           access,
           payload,
+          signal: controller.signal,
           serverBaseUrl,
         });
 
         dispatch({ type: 'optimize-succeeded', result });
+        return {
+          ok: true,
+          result,
+        };
       } catch (error) {
+        const errorCode =
+          error instanceof PromptApiError ? error.code : 'NETWORK_ERROR';
         dispatch({
           type: 'optimize-failed',
           errorMessage:
@@ -118,6 +144,12 @@ export function useOptimizePrompt() {
               ? error.message
               : 'Unable to optimize prompt. Please try again.',
         });
+        return {
+          errorCode,
+          ok: false,
+        };
+      } finally {
+        clearTimeout(timeoutId);
       }
     },
   };

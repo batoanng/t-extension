@@ -69,6 +69,13 @@ export async function optimizePrompt({
       signal,
     });
   } catch {
+    if (signal?.aborted) {
+      throw new PromptApiError(
+        getPromptApiErrorMessage('REQUEST_TIMEOUT'),
+        'REQUEST_TIMEOUT',
+      );
+    }
+
     throw new PromptApiError(
       getPromptApiErrorMessage('NETWORK_ERROR'),
       'NETWORK_ERROR',

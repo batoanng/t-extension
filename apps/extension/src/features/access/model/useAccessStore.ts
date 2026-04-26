@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { env } from '@/shared/config';
+
 import {
   createCheckoutSession,
   createCustomerPortalSession,
@@ -10,16 +10,7 @@ import {
   refreshAuthSession,
   requestMagicLink,
 } from '@/shared/api';
-import {
-  AccessMode,
-  MagicLinkStatus,
-} from '@/shared/model/access';
-import type {
-  AccessSnapshot,
-  OptimizeAccess,
-  StoredAuthSession,
-  SubscriptionStatus,
-} from '@/shared/model/access';
+import { env } from '@/shared/config';
 import {
   getStoredJson,
   getStoredString,
@@ -28,8 +19,25 @@ import {
   setStoredString,
   subscribeToStoredString,
 } from '@/shared/lib/chromeStorage';
+import {
+  type AccessIssue,
+  AccessMode,
+  MagicLinkStatus,
+  getAccessGateMessage,
+} from '@/shared/model/access';
+import type {
+  AccessSnapshot,
+  OptimizeAccess,
+  StoredAuthSession,
+  SubscriptionStatus,
+} from '@/shared/model/access';
+import {
+  type PromptApiClientErrorCode,
+  getPromptApiErrorMessage,
+} from '@/shared/model/prompt';
 
 const ACCESS_MODE_STORAGE_KEY = 'prompt_access_mode';
+const ACCESS_PANEL_COLLAPSED_STORAGE_KEY = 'prompt_access_panel_collapsed';
 const AUTH_SESSION_STORAGE_KEY = 'pro_auth_session';
 const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const accessTokenRefreshBufferMs = 30_000;
@@ -54,6 +62,10 @@ const initialSnapshot: AccessSnapshot = {
       subscription: null,
     },
   },
+  ui: {
+    accessIssue: null,
+    accessPanelCollapsed: false,
+  },
   ready: false,
 };
 
@@ -61,6 +73,7 @@ let currentSnapshot = initialSnapshot;
 let currentAuthSession: StoredAuthSession | null = null;
 let hasHydrated = false;
 let releaseModeSubscription: (() => void) | null = null;
+let releaseAccessPanelCollapsedSubscription: (() => void) | null = null;
 let releaseApiKeySubscription: (() => void) | null = null;
 let releaseAuthSessionSubscription: (() => void) | null = null;
 let magicLinkPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -83,6 +96,60 @@ function updateSnapshot(updater: (snapshot: AccessSnapshot) => AccessSnapshot) {
   setSnapshot(updater(currentSnapshot));
 }
 
+function parseStoredBoolean(value: string | null): boolean | null {
+  if (value === 'true') {
+    return true;
+  }
+
+  if (value === 'false') {
+    return false;
+  }
+
+  return null;
+}
+
+function getDefaultAccessPanelCollapsed(input: {
+  apiKey: string | null;
+  mode: string | null;
+  storedValue: string | null;
+}) {
+  const storedValue = parseStoredBoolean(input.storedValue);
+
+  if (storedValue != null) {
+    return storedValue;
+  }
+
+  return input.mode === AccessMode.Pro || Boolean(input.apiKey);
+}
+
+function setAccessIssue(accessIssue: AccessIssue | null) {
+  updateSnapshot((snapshot) => ({
+    ...snapshot,
+    ui: {
+      ...snapshot.ui,
+      accessIssue,
+    },
+  }));
+}
+
+function clearAccessIssue() {
+  setAccessIssue(null);
+}
+
+async function setAccessPanelCollapsed(collapsed: boolean) {
+  await setStoredString(
+    ACCESS_PANEL_COLLAPSED_STORAGE_KEY,
+    collapsed ? 'true' : 'false',
+  );
+  updateSnapshot((snapshot) => ({
+    ...snapshot,
+    ui: {
+      ...snapshot.ui,
+      accessPanelCollapsed: collapsed,
+    },
+  }));
+}
+
 function stopMagicLinkPolling() {
   if (!magicLinkPollTimer) {
     return;
@@ -103,8 +170,9 @@ async function persistAuthSession(session: StoredAuthSession | null) {
 }
 
 async function hydrateSnapshot() {
-  const [mode, apiKey, authSession] = await Promise.all([
+  const [mode, accessPanelCollapsed, apiKey, authSession] = await Promise.all([
     getStoredString(ACCESS_MODE_STORAGE_KEY),
+    getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
     getStoredString(OPENAI_API_KEY_STORAGE_KEY),
     getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
   ]);
@@ -136,6 +204,14 @@ async function hydrateSnapshot() {
             subscription: null,
           },
     },
+    ui: {
+      accessIssue: null,
+      accessPanelCollapsed: getDefaultAccessPanelCollapsed({
+        apiKey,
+        mode,
+        storedValue: accessPanelCollapsed,
+      }),
+    },
     ready: true,
   });
 
@@ -158,6 +234,20 @@ function ensureHydrated() {
       updateSnapshot((snapshot) => ({
         ...snapshot,
         mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
+      }));
+    },
+  );
+  releaseAccessPanelCollapsedSubscription = subscribeToStoredString(
+    ACCESS_PANEL_COLLAPSED_STORAGE_KEY,
+    (collapsedValue) => {
+      updateSnapshot((snapshot) => ({
+        ...snapshot,
+        ui: {
+          ...snapshot.ui,
+          accessPanelCollapsed:
+            parseStoredBoolean(collapsedValue) ??
+            snapshot.ui.accessPanelCollapsed,
+        },
       }));
     },
   );
@@ -258,6 +348,10 @@ async function clearAuthState() {
         subscription: null,
       },
     },
+    ui: {
+      ...snapshot.ui,
+      accessIssue: null,
+    },
   }));
 }
 
@@ -266,7 +360,10 @@ async function ensureFreshSession() {
     return null;
   }
 
-  if (currentAuthSession.accessTokenExpiresAt > Date.now() + accessTokenRefreshBufferMs) {
+  if (
+    currentAuthSession.accessTokenExpiresAt >
+    Date.now() + accessTokenRefreshBufferMs
+  ) {
     return currentAuthSession;
   }
 
@@ -371,6 +468,10 @@ async function refreshSubscriptionStatus() {
         },
         subscription: nextState,
       },
+      ui: {
+        ...snapshot.ui,
+        accessIssue: null,
+      },
     }));
 
     return nextState;
@@ -431,6 +532,10 @@ async function pollMagicLinkStatus(requestId: string, email: string) {
           subscription: null,
         },
       },
+      ui: {
+        ...snapshot.ui,
+        accessIssue: null,
+      },
     }));
     await persistAuthSession(authSession);
     await refreshSubscriptionStatus();
@@ -462,26 +567,62 @@ async function setMode(mode: AccessMode) {
   updateSnapshot((snapshot) => ({
     ...snapshot,
     mode,
+    ui: {
+      ...snapshot.ui,
+      accessIssue: null,
+    },
   }));
 
   if (mode === AccessMode.Pro) {
+    await setAccessPanelCollapsed(true);
     void refreshOffering();
 
     if (currentAuthSession) {
       void refreshSubscriptionStatus();
     }
+
+    return;
+  }
+
+  if (!currentSnapshot.byok.apiKey) {
+    await setAccessPanelCollapsed(false);
   }
 }
 
 async function saveApiKey(apiKey: string) {
-  await setStoredString(OPENAI_API_KEY_STORAGE_KEY, apiKey.trim());
+  const trimmedApiKey = apiKey.trim();
+
+  await setStoredString(OPENAI_API_KEY_STORAGE_KEY, trimmedApiKey);
+  updateSnapshot((snapshot) => ({
+    ...snapshot,
+    byok: {
+      apiKey: trimmedApiKey,
+    },
+    ui: {
+      ...snapshot.ui,
+      accessIssue: null,
+    },
+  }));
+  await setAccessPanelCollapsed(true);
 }
 
 async function removeApiKey() {
   await removeStoredString(OPENAI_API_KEY_STORAGE_KEY);
+  updateSnapshot((snapshot) => ({
+    ...snapshot,
+    byok: {
+      apiKey: null,
+    },
+    ui: {
+      ...snapshot.ui,
+      accessIssue: null,
+    },
+  }));
+  await setAccessPanelCollapsed(false);
 }
 
 async function sendMagicLink(email: string) {
+  clearAccessIssue();
   updateSnapshot((snapshot) => ({
     ...snapshot,
     pro: {
@@ -536,6 +677,61 @@ async function signOut() {
   }
 
   await clearAuthState();
+}
+
+function reportOptimizeFailure(input: {
+  accessKind: OptimizeAccess['kind'];
+  errorCode: PromptApiClientErrorCode;
+}) {
+  if (input.accessKind === 'byok') {
+    if (input.errorCode === 'OPENAI_AUTH_FAILED') {
+      setAccessIssue({
+        code: 'invalid-api-key',
+        message: getPromptApiErrorMessage('OPENAI_AUTH_FAILED'),
+      });
+      return;
+    }
+
+    if (input.errorCode === 'MISSING_OPENAI_API_KEY') {
+      setAccessIssue({
+        code: 'missing-api-key',
+        message: getAccessGateMessage('missing-api-key'),
+      });
+    }
+
+    return;
+  }
+
+  if (input.errorCode === 'AUTH_REQUIRED') {
+    setAccessIssue({
+      code: 'sign-in-required',
+      message: getPromptApiErrorMessage('AUTH_REQUIRED'),
+    });
+    return;
+  }
+
+  if (input.errorCode === 'SUBSCRIPTION_REQUIRED') {
+    setAccessIssue({
+      code: 'subscription-required',
+      message: getPromptApiErrorMessage('SUBSCRIPTION_REQUIRED'),
+    });
+    return;
+  }
+
+  if (input.errorCode === 'SUBSCRIPTION_INACTIVE') {
+    setAccessIssue({
+      code: 'subscription-inactive',
+      message: getPromptApiErrorMessage('SUBSCRIPTION_INACTIVE'),
+    });
+    return;
+  }
+
+  if (input.errorCode === 'HOSTED_OPTIMIZATION_UNAVAILABLE') {
+    setAccessIssue({
+      code: 'offering-unavailable',
+      message: getPromptApiErrorMessage('HOSTED_OPTIMIZATION_UNAVAILABLE'),
+    });
+  }
 }
 
 async function openCheckout() {
@@ -605,6 +801,8 @@ export function __resetAccessStoreForTests() {
   stopMagicLinkPolling();
   releaseModeSubscription?.();
   releaseModeSubscription = null;
+  releaseAccessPanelCollapsedSubscription?.();
+  releaseAccessPanelCollapsedSubscription = null;
   releaseApiKeySubscription?.();
   releaseApiKeySubscription = null;
   releaseAuthSessionSubscription?.();
@@ -621,14 +819,17 @@ export function useAccessStore() {
 
   return {
     ...snapshot,
+    clearAccessIssue,
     openCheckout,
     openCustomerPortal,
     prepareOptimizeAccess,
+    reportOptimizeFailure,
     refreshOffering,
     refreshSubscriptionStatus,
     removeApiKey,
     saveApiKey,
     sendMagicLink,
+    setAccessPanelCollapsed,
     setMode,
     signOut,
   };

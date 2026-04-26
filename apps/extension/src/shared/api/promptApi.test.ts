@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { optimizePrompt } from './promptApi';
+
 import { PromptApiError } from '@/shared/model/prompt';
+
+import { optimizePrompt } from './promptApi';
 
 describe('promptApi', () => {
   beforeEach(() => {
@@ -142,6 +144,56 @@ describe('promptApi', () => {
         headers: expect.objectContaining({
           authorization: 'Bearer access-token',
         }),
+      }),
+    );
+  });
+
+  it('maps aborted requests to the timeout error message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (_input, init) => {
+        const signal = init?.signal as AbortSignal | undefined;
+
+        if (signal?.aborted) {
+          throw new DOMException('The operation was aborted.', 'AbortError');
+        }
+
+        return await new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              reject(
+                new DOMException('The operation was aborted.', 'AbortError'),
+              );
+            },
+            { once: true },
+          );
+        });
+      }),
+    );
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      optimizePrompt({
+        access: {
+          apiKey: 'sk-test',
+          kind: 'byok',
+        },
+        payload: {
+          credentialMode: 'byok',
+          outputStyle: 'structured',
+          prompt: 'Fix my React app',
+          targetAgent: 'generic',
+        },
+        serverBaseUrl: 'http://localhost:3000',
+        signal: controller.signal,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<PromptApiError>>({
+        code: 'REQUEST_TIMEOUT',
+        message: 'Optimization timed out after 30 seconds. Please try again.',
       }),
     );
   });

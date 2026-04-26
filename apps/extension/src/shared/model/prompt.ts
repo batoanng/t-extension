@@ -73,7 +73,8 @@ export type OptimizePromptResponse = z.infer<
 export type PromptApiClientErrorCode =
   | PromptErrorCode
   | 'NETWORK_ERROR'
-  | 'INVALID_RESPONSE';
+  | 'INVALID_RESPONSE'
+  | 'REQUEST_TIMEOUT';
 
 export class PromptApiError extends Error {
   constructor(
@@ -134,12 +135,12 @@ export function getPromptApiErrorMessage(
       return 'Unable to optimize prompt. Please try again.';
     case 'NETWORK_ERROR':
       return 'Server is unavailable. Please try again later.';
+    case 'REQUEST_TIMEOUT':
+      return 'Optimization timed out after 30 seconds. Please try again.';
   }
 }
 
-export function isPromptErrorCode(
-  code: string,
-): code is PromptErrorCode {
+export function isPromptErrorCode(code: string): code is PromptErrorCode {
   return promptErrorCodes.includes(code as PromptErrorCode);
 }
 

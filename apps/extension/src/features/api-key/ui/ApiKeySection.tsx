@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
 interface ApiKeySectionProps {
@@ -23,7 +24,7 @@ export function ApiKeySection({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [showSavedMessage, setShowSavedMessage] = useState(hasApiKey);
+  const [showSavedMessage, setShowSavedMessage] = useState(false);
 
   const showEditor = !hasApiKey || isEditing;
 
@@ -67,107 +68,93 @@ export function ApiKeySection({
   }
 
   return (
-    <section className="panel" aria-labelledby="api-key-title">
-      <div className="panel-header">
-        <div>
-          <h2 className="panel-title" id="api-key-title">
-            OpenAI API Key
-          </h2>
-          <p className="panel-subtitle">
-            Your key is stored locally and only sent to the configured backend
-            when you optimize a prompt.
-          </p>
+    <div className="stack">
+      {!isReady ? (
+        <InlineMessage>Loading saved API key...</InlineMessage>
+      ) : null}
+
+      {showEditor ? (
+        <div className="field">
+          <label className="field-label" htmlFor="openai-api-key">
+            API key
+          </label>
+          <input
+            autoComplete="off"
+            className="text-input"
+            disabled={!isReady || isSaving || isRemoving}
+            id="openai-api-key"
+            onChange={(event) => {
+              setDraftApiKey(event.target.value);
+              setErrorMessage(null);
+            }}
+            placeholder="sk-..."
+            spellCheck={false}
+            type="password"
+            value={draftApiKey}
+          />
         </div>
-      </div>
+      ) : (
+        <div className="field">
+          <span className="field-label">Saved key</span>
+          <div className="masked-value" aria-label="Saved API key is masked">
+            ••••••••••••••••••••••••
+          </div>
+        </div>
+      )}
 
-      <div className="stack">
-        {!isReady ? (
-          <InlineMessage>Loading saved API key...</InlineMessage>
-        ) : null}
+      {errorMessage ? (
+        <InlineMessage tone="error">{errorMessage}</InlineMessage>
+      ) : null}
 
+      {hasApiKey && showSavedMessage && !isEditing ? (
+        <InlineMessage tone="success">API key saved locally.</InlineMessage>
+      ) : null}
+
+      <div className="button-row">
         {showEditor ? (
-          <div className="field">
-            <label className="field-label" htmlFor="openai-api-key">
-              API key
-            </label>
-            <input
-              autoComplete="off"
-              className="text-input"
-              disabled={!isReady || isSaving || isRemoving}
-              id="openai-api-key"
-              onChange={(event) => {
-                setDraftApiKey(event.target.value);
-                setErrorMessage(null);
-              }}
-              placeholder="sk-..."
-              spellCheck={false}
-              type="password"
-              value={draftApiKey}
-            />
-          </div>
+          <button
+            className="button button-primary"
+            disabled={
+              !isReady ||
+              isSaving ||
+              isRemoving ||
+              draftApiKey.trim().length === 0
+            }
+            onClick={handleSaveClick}
+            type="button"
+          >
+            {isSaving ? 'Saving...' : hasApiKey ? 'Save replacement' : 'Save'}
+          </button>
         ) : (
-          <div className="field">
-            <span className="field-label">Saved key</span>
-            <div className="masked-value" aria-label="Saved API key is masked">
-              ••••••••••••••••••••••••
-            </div>
-          </div>
+          <button
+            className="button button-secondary"
+            disabled={!isReady || isRemoving}
+            onClick={() => {
+              setIsEditing(true);
+              setShowSavedMessage(false);
+            }}
+            type="button"
+          >
+            Replace API key
+          </button>
         )}
 
-        {errorMessage ? (
-          <InlineMessage tone="error">{errorMessage}</InlineMessage>
+        {hasApiKey ? (
+          <button
+            className="button button-ghost"
+            disabled={!isReady || isRemoving || isSaving}
+            onClick={handleRemoveClick}
+            type="button"
+          >
+            {isRemoving ? 'Removing...' : 'Remove key'}
+          </button>
         ) : null}
-
-        {hasApiKey && showSavedMessage && !isEditing ? (
-          <InlineMessage tone="success">API key saved locally.</InlineMessage>
-        ) : null}
-
-        <div className="button-row">
-          {showEditor ? (
-            <button
-              className="button button-primary"
-              disabled={
-                !isReady ||
-                isSaving ||
-                isRemoving ||
-                draftApiKey.trim().length === 0
-              }
-              onClick={handleSaveClick}
-              type="button"
-            >
-              {isSaving ? 'Saving...' : hasApiKey ? 'Save replacement' : 'Save'}
-            </button>
-          ) : (
-            <button
-              className="button button-secondary"
-              disabled={!isReady || isRemoving}
-              onClick={() => {
-                setIsEditing(true);
-                setShowSavedMessage(false);
-              }}
-              type="button"
-            >
-              Replace API key
-            </button>
-          )}
-
-          {hasApiKey ? (
-            <button
-              className="button button-ghost"
-              disabled={!isReady || isRemoving || isSaving}
-              onClick={handleRemoveClick}
-              type="button"
-            >
-              {isRemoving ? 'Removing...' : 'Remove key'}
-            </button>
-          ) : null}
-        </div>
-
-        <p className="hint-text">
-          The backend uses your key for the current optimization request and
-          does not store it.
-        </p>
       </div>
-    </section>
+
+      <p className="hint-text">
+        Your key stays local and is sent only with the current optimization
+        request.
+      </p>
+    </div>
   );
 }

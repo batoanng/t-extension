@@ -1,18 +1,19 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable } from '@nestjs/common';
-import type { Cache } from 'cache-manager';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import type { Cache } from 'cache-manager';
 
 import type { Config } from '../../types/config';
-import { Service } from '../tokens';
 import { SubscriptionService } from '../subscription';
-import { PromptHttpException } from './prompt.errors';
+import { Service } from '../tokens';
+import { PromptHttpException, getPromptErrorMessage } from './prompt.errors';
 import type { PromptOptimizeRequest } from './prompt.schemas';
 
 const minuteWindowMs = 60_000;
 const dayWindowMs = 86_400_000;
 const promptMinuteLimit = 10;
 const promptDayLimit = 100;
+const promptInvocationTimeoutMs = 30_000;
 const defaultModel = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
 const fallbackRateLimitStore = new Map<string, number>();
 
@@ -33,9 +34,7 @@ Rules:
 `.trim();
 
 export interface PromptModel {
-  invoke(
-    messages: Array<SystemMessage | HumanMessage>,
-  ): Promise<{ content: unknown }>;
+  invoke(messages: Array<SystemMessage | HumanMessage>): Promise<{ content: unknown }>;
 }
 
 export type PromptModelFactory = (input: {
@@ -63,9 +62,7 @@ function getTargetAgentGuidance(targetAgent: PromptOptimizeRequest['targetAgent'
   }
 }
 
-function getOutputStyleGuidance(
-  outputStyle: PromptOptimizeRequest['outputStyle'],
-) {
+function getOutputStyleGuidance(outputStyle: PromptOptimizeRequest['outputStyle']) {
   switch (outputStyle) {
     case 'concise':
       return 'Keep the rewritten prompt compact while retaining the important constraints and deliverables.';
@@ -119,6 +116,35 @@ function extractOptimizedPrompt(content: unknown): string {
   return '';
 }
 
+async function invokePromptModelWithTimeout(
+  model: PromptModel,
+  messages: Array<SystemMessage | HumanMessage>,
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      model.invoke(messages),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new PromptHttpException(
+              HttpStatus.GATEWAY_TIMEOUT,
+              'OPENAI_REQUEST_FAILED',
+              getPromptErrorMessage('OPENAI_REQUEST_FAILED'),
+            ),
+          );
+        }, promptInvocationTimeoutMs);
+        timeoutId.unref?.();
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 @Injectable()
 export class PromptService {
   constructor(
@@ -138,11 +164,7 @@ export class PromptService {
     }
   }
 
-  private async setRateLimitCount(
-    cacheKey: string,
-    value: number,
-    ttlMs: number,
-  ) {
+  private async setRateLimitCount(cacheKey: string, value: number, ttlMs: number) {
     try {
       await this.cacheManager.set(cacheKey, value, ttlMs);
       return;
@@ -181,25 +203,17 @@ export class PromptService {
   }
 
   private async enforceRateLimit(clientIdentifier: string) {
-    await this.enforceWindowLimit(
-      clientIdentifier,
-      promptMinuteLimit,
-      minuteWindowMs,
-      'minute',
-    );
-    await this.enforceWindowLimit(
-      clientIdentifier,
-      promptDayLimit,
-      dayWindowMs,
-      'day',
-    );
+    await this.enforceWindowLimit(clientIdentifier, promptMinuteLimit, minuteWindowMs, 'minute');
+    await this.enforceWindowLimit(clientIdentifier, promptDayLimit, dayWindowMs, 'day');
   }
 
-  async optimizePrompt(input: PromptOptimizeRequest & {
-    clientIp: string;
-    apiKey?: string;
-    userId?: string;
-  }) {
+  async optimizePrompt(
+    input: PromptOptimizeRequest & {
+      clientIp: string;
+      apiKey?: string;
+      userId?: string;
+    },
+  ) {
     const executionContext = await this.resolveExecutionContext(input);
     await this.enforceRateLimit(executionContext.rateLimitId);
 
@@ -209,7 +223,7 @@ export class PromptService {
       model: executionContext.model,
     });
 
-    const result = await model.invoke([
+    const result = await invokePromptModelWithTimeout(model, [
       new SystemMessage(PROMPT_OPTIMIZER_SYSTEM_PROMPT),
       new HumanMessage(buildUserPrompt(input)),
     ]);
@@ -255,9 +269,7 @@ export class PromptService {
         );
       }
 
-      const access = await this.subscriptionService.assertHostedOptimizationAccess(
-        input.userId,
-      );
+      const access = await this.subscriptionService.assertHostedOptimizationAccess(input.userId);
 
       if (access.status === 'missing') {
         throw new PromptHttpException(
@@ -285,11 +297,7 @@ export class PromptService {
     }
 
     if (!input.apiKey) {
-      throw new PromptHttpException(
-        401,
-        'MISSING_OPENAI_API_KEY',
-        'OpenAI API key is required.',
-      );
+      throw new PromptHttpException(401, 'MISSING_OPENAI_API_KEY', 'OpenAI API key is required.');
     }
 
     return {

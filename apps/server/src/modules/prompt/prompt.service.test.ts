@@ -2,10 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Config } from '../../types/config';
 import { PromptHttpException } from './prompt.errors';
-import {
-  PromptService,
-  type PromptModelFactory,
-} from './prompt.service';
+import { type PromptModelFactory, PromptService } from './prompt.service';
 
 const promptTestConfig: Config = Object.freeze({
   ACCESS_EXPIRES_IN: '15m',
@@ -138,5 +135,47 @@ describe('PromptService', () => {
         targetAgent: 'generic',
       }),
     ).rejects.toBeInstanceOf(PromptHttpException);
+  });
+
+  it('times out stalled model invocations', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const cacheManager = createCacheManager();
+      const createPromptModel: PromptModelFactory = vi.fn().mockReturnValue({
+        invoke: vi.fn().mockImplementation(async () => await new Promise(() => undefined)),
+      });
+      const subscriptionService = {
+        assertHostedOptimizationAccess: vi.fn(),
+      };
+
+      const service = new PromptService(
+        cacheManager as never,
+        createPromptModel,
+        promptTestConfig,
+        subscriptionService as never,
+      );
+
+      const optimizePromise = service.optimizePrompt({
+        apiKey: 'sk-test',
+        clientIp: '127.0.0.1',
+        credentialMode: 'byok',
+        mode: 'developer-agent',
+        outputStyle: 'structured',
+        prompt: 'Fix my slow React page',
+        targetAgent: 'codex',
+      });
+      const rejection = expect(optimizePromise).rejects.toEqual(
+        expect.objectContaining({
+          code: 'OPENAI_REQUEST_FAILED',
+        }),
+      );
+
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

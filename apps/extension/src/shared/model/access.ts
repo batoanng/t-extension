@@ -9,6 +9,19 @@ export enum MagicLinkStatus {
   Expired = 'expired',
 }
 
+export type AccessIssueCode =
+  | 'invalid-api-key'
+  | 'missing-api-key'
+  | 'offering-unavailable'
+  | 'sign-in-required'
+  | 'subscription-inactive'
+  | 'subscription-required';
+
+export interface AccessIssue {
+  code: AccessIssueCode;
+  message: string;
+}
+
 export interface StoredAuthSession {
   accessToken: string;
   accessTokenExpiresAt: number;
@@ -91,8 +104,20 @@ export interface AccessSnapshot {
           subscription: SubscriptionStatus | null;
         };
   };
+  ui: {
+    accessIssue: AccessIssue | null;
+    accessPanelCollapsed: boolean;
+  };
   ready: boolean;
 }
+
+export type AccessGateBlockedReason =
+  | 'loading'
+  | 'missing-api-key'
+  | 'sign-in-required'
+  | 'subscription-required'
+  | 'subscription-loading'
+  | 'offering-unavailable';
 
 export type AccessGate =
   | {
@@ -101,13 +126,7 @@ export type AccessGate =
     }
   | {
       kind: 'blocked';
-      reason:
-        | 'loading'
-        | 'missing-api-key'
-        | 'sign-in-required'
-        | 'subscription-required'
-        | 'subscription-loading'
-        | 'offering-unavailable';
+      reason: AccessGateBlockedReason;
     };
 
 export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
@@ -185,4 +204,65 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
       kind: 'subscription',
     },
   };
+}
+
+export function getAccessGateMessage(reason: AccessGateBlockedReason): string {
+  switch (reason) {
+    case 'loading':
+      return 'Preparing your optimization access...';
+    case 'missing-api-key':
+      return 'Add your OpenAI API key before optimizing prompts.';
+    case 'sign-in-required':
+      return 'Sign in to Developer Assistant Pro before using hosted optimization.';
+    case 'subscription-required':
+      return 'Subscribe to Developer Assistant Pro or switch back to your own API key.';
+    case 'subscription-loading':
+      return 'Checking your Developer Assistant Pro subscription...';
+    case 'offering-unavailable':
+      return 'Developer Assistant Pro is unavailable right now. You can still use your own API key.';
+  }
+}
+
+function toAccessIssue(reason: AccessGateBlockedReason): AccessIssue | null {
+  switch (reason) {
+    case 'loading':
+    case 'subscription-loading':
+      return null;
+    case 'missing-api-key':
+      return {
+        code: 'missing-api-key',
+        message: getAccessGateMessage(reason),
+      };
+    case 'sign-in-required':
+      return {
+        code: 'sign-in-required',
+        message: getAccessGateMessage(reason),
+      };
+    case 'subscription-required':
+      return {
+        code: 'subscription-required',
+        message: getAccessGateMessage(reason),
+      };
+    case 'offering-unavailable':
+      return {
+        code: 'offering-unavailable',
+        message: getAccessGateMessage(reason),
+      };
+  }
+}
+
+export function getAccessPanelIssue(
+  snapshot: AccessSnapshot,
+): AccessIssue | null {
+  if (snapshot.ui.accessIssue) {
+    return snapshot.ui.accessIssue;
+  }
+
+  const accessGate = getAccessGate(snapshot);
+
+  if (accessGate.kind === 'allowed') {
+    return null;
+  }
+
+  return toAccessIssue(accessGate.reason);
 }

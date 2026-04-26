@@ -1,6 +1,8 @@
 import { useState } from 'react';
+
+import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { env } from '@/shared/config';
-import { getAccessGate } from '@/shared/model/access';
+import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import {
   DEFAULT_MODE,
   DEFAULT_OUTPUT_STYLE,
@@ -13,17 +15,15 @@ import {
   promptTargetAgentOptions,
 } from '@/shared/model/prompt';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
+
 import { useOptimizePrompt } from '../model/useOptimizePrompt';
-import { useAccessStore } from '@/features/access/model/useAccessStore';
 
 export function PromptOptimizer() {
   const [rawPrompt, setRawPrompt] = useState('');
-  const [targetAgent, setTargetAgent] = useState<PromptTargetAgent>(
-    DEFAULT_TARGET_AGENT,
-  );
-  const [outputStyle, setOutputStyle] = useState<PromptOutputStyle>(
-    DEFAULT_OUTPUT_STYLE,
-  );
+  const [targetAgent, setTargetAgent] =
+    useState<PromptTargetAgent>(DEFAULT_TARGET_AGENT);
+  const [outputStyle, setOutputStyle] =
+    useState<PromptOutputStyle>(DEFAULT_OUTPUT_STYLE);
   const accessStore = useAccessStore();
   const {
     copyOptimizedPrompt,
@@ -53,7 +53,7 @@ export function PromptOptimizer() {
       return;
     }
 
-    await runOptimizePrompt({
+    const optimizeResult = await runOptimizePrompt({
       access,
       payload: {
         credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
@@ -64,10 +64,23 @@ export function PromptOptimizer() {
       },
       serverBaseUrl: env.serverBaseUrl,
     });
+
+    if (optimizeResult.ok) {
+      accessStore.clearAccessIssue();
+      return;
+    }
+
+    accessStore.reportOptimizeFailure({
+      accessKind: access.kind,
+      errorCode: optimizeResult.errorCode,
+    });
   }
 
   return (
-    <section className="panel" aria-labelledby="prompt-optimizer-title">
+    <section
+      className="panel optimizer-panel"
+      aria-labelledby="prompt-optimizer-title"
+    >
       <div className="panel-header">
         <div>
           <h2 className="panel-title" id="prompt-optimizer-title">
@@ -86,7 +99,7 @@ export function PromptOptimizer() {
             Raw prompt
           </label>
           <textarea
-            className="text-area"
+            className="text-area optimizer-input"
             disabled={!accessStore.ready || status === 'loading'}
             id="raw-prompt"
             maxLength={MAX_PROMPT_LENGTH}
@@ -211,29 +224,4 @@ export function PromptOptimizer() {
       </div>
     </section>
   );
-}
-
-function getAccessGateMessage(
-  reason:
-    | 'loading'
-    | 'missing-api-key'
-    | 'sign-in-required'
-    | 'subscription-required'
-    | 'subscription-loading'
-    | 'offering-unavailable',
-) {
-  switch (reason) {
-    case 'loading':
-      return 'Preparing your optimization access...';
-    case 'missing-api-key':
-      return 'Add your OpenAI API key before optimizing prompts.';
-    case 'sign-in-required':
-      return 'Sign in to Developer Assistant Pro before using hosted optimization.';
-    case 'subscription-required':
-      return 'Subscribe to Developer Assistant Pro or switch back to your own API key.';
-    case 'subscription-loading':
-      return 'Checking your Developer Assistant Pro subscription...';
-    case 'offering-unavailable':
-      return 'Developer Assistant Pro is unavailable right now. You can still use your own API key.';
-  }
 }
