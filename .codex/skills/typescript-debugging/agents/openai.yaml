@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Debugging"
+  short_description: "Trace TypeScript bugs to root cause"
+  default_prompt: "Use $typescript-debugging to debug this TypeScript or JavaScript issue by reproducing it, verifying source maps and runtime context, choosing targeted instrumentation, and fixing the root cause with clear verification."

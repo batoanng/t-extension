@@ -1,0 +1,4 @@
+interface:
+  display_name: "SOLID TypeScript"
+  short_description: "Apply practical SOLID to TypeScript design"
+  default_prompt: "Use $solid-typescript to review or refactor this TypeScript code so responsibilities are focused, contracts stay narrow and substitutable, and business logic depends on abstractions instead of concrete infrastructure."

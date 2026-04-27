@@ -1,0 +1,4 @@
+interface:
+  display_name: "Purposeful Logging"
+  short_description: "Add and trim logs with clear signal"
+  default_prompt: "Use $purposeful-logging to review or instrument this code so logs stay structured, contextual, and limited to events that materially help debugging or operations."
