@@ -28,18 +28,17 @@ import {
 } from '@/shared/lib/chromeStorage';
 import {
   type AccessIssue,
-  type AccessSnapshot,
   AccessMode,
-  type ByokProvider,
-  createDefaultByokConfig,
-  getAccessGateMessage,
+  type AccessSnapshot,
   MagicLinkStatus,
-  reconcileByokConfig,
-  resolveByokModel,
   type OptimizeAccess,
   type StoredAuthSession,
   type StoredByokConfig,
   type SubscriptionStatus,
+  createDefaultByokConfig,
+  getAccessGateMessage,
+  reconcileByokConfig,
+  resolveByokModel,
 } from '@/shared/model/access';
 import {
   type PromptApiClientErrorCode,
@@ -136,10 +135,7 @@ function parseStoredByokConfig(
 
   const nextConfig = reconcileByokConfig(catalog, {
     ...parsed,
-    apiKey:
-      typeof parsed?.apiKey === 'string'
-        ? parsed.apiKey
-        : legacyApiKey,
+    apiKey: typeof parsed?.apiKey === 'string' ? parsed.apiKey : legacyApiKey,
   });
 
   return nextConfig;
@@ -240,9 +236,7 @@ async function hydrateSnapshot() {
     catalog: {
       data: cachedCatalog,
       errorMessage: null,
-      freshness: cachedCatalog
-        ? getCatalogFreshness(catalogMetadata)
-        : null,
+      freshness: cachedCatalog ? getCatalogFreshness(catalogMetadata) : null,
       status: cachedCatalog ? 'ready' : 'loading',
     },
     mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
@@ -409,8 +403,7 @@ async function refreshAccessCatalog() {
         catalog: {
           data: response.catalog,
           errorMessage: null,
-          freshness:
-            response.freshness ?? getCatalogFreshness(metadata),
+          freshness: response.freshness ?? getCatalogFreshness(metadata),
           status: 'ready',
         },
       }));
@@ -435,7 +428,8 @@ async function refreshAccessCatalog() {
       ...snapshot,
       catalog: {
         data: null,
-        errorMessage: response.errorMessage ?? 'Unable to load the provider catalog.',
+        errorMessage:
+          response.errorMessage ?? 'Unable to load the provider catalog.',
         freshness: null,
         status: 'error',
       },
