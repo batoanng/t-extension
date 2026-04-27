@@ -100,6 +100,7 @@ export const configSchema = z.object({
     .trim()
     .url()
     .default('https://api.deepseek.com/v1'),
+  ACCESS_CATALOG_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
   PROMPT_OPTIMIZER_PRO_PRICE_AUD_MONTHLY: z.coerce.number().positive().default(2),
   STRIPE_SECRET_KEY: optionalStringSchema,
   STRIPE_WEBHOOK_SECRET: optionalStringSchema,

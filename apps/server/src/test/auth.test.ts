@@ -23,6 +23,7 @@ const authTestConfig: Config = Object.freeze({
   ACCESS_EXPIRES_IN: '15m',
   ACCESS_EXPIRES_IN_SECONDS: 900,
   ACCESS_SECRET: 'access-secret',
+  ACCESS_CATALOG_CACHE_TTL_SECONDS: 86_400,
   API_PORT: 3000,
   API_VERSION: 1,
   CORS_ORIGIN: ['http://localhost:3001'],

@@ -28,13 +28,87 @@ function createAxiosResponse<T>(data: T, status = 200) {
   };
 }
 
-function createOfferingResponse() {
+function createAccessCatalogResponse() {
   return createAxiosResponse({
-    currency: 'AUD',
-    enabled: true,
-    plan: 'pro',
-    priceAudMonthly: 2,
-    provider: 'deepseek',
+    cacheTtlSeconds: 86_400,
+    generatedAt: '2026-04-27T00:00:00.000Z',
+    providers: [
+      {
+        defaultModelId: 'gpt-4.1-mini',
+        fetchedAt: '2026-04-27T00:00:00.000Z',
+        id: 'openai',
+        label: 'OpenAI',
+        models: [
+          {
+            id: 'gpt-4.1-mini',
+            label: 'GPT 4.1 Mini',
+          },
+          {
+            id: 'gpt-4.1',
+            label: 'GPT 4.1',
+          },
+        ],
+        sourceUrl: 'https://platform.openai.com/docs/models',
+      },
+      {
+        defaultModelId: 'claude-sonnet-4-20250514',
+        fetchedAt: '2026-04-27T00:00:00.000Z',
+        id: 'claude',
+        label: 'Claude',
+        models: [
+          {
+            id: 'claude-sonnet-4-20250514',
+            label: 'Claude Sonnet 4',
+          },
+        ],
+        sourceUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
+      },
+      {
+        defaultModelId: 'deepseek-v4-flash',
+        fetchedAt: '2026-04-27T00:00:00.000Z',
+        id: 'deepseek',
+        label: 'DeepSeek',
+        models: [
+          {
+            id: 'deepseek-v4-flash',
+            label: 'DeepSeek V4 Flash',
+          },
+        ],
+        sourceUrl: 'https://api-docs.deepseek.com/',
+      },
+      {
+        defaultModelId: 'gemini-2.5-flash',
+        fetchedAt: '2026-04-27T00:00:00.000Z',
+        id: 'gemini',
+        label: 'Gemini',
+        models: [
+          {
+            id: 'gemini-2.5-flash',
+            label: 'Gemini 2.5 Flash',
+          },
+        ],
+        sourceUrl: 'https://ai.google.dev/gemini-api/docs/models/gemini',
+      },
+      {
+        defaultModelId: 'grok-4.20-reasoning',
+        fetchedAt: '2026-04-27T00:00:00.000Z',
+        id: 'grok',
+        label: 'Grok',
+        models: [
+          {
+            id: 'grok-4.20-reasoning',
+            label: 'Grok 4.20 Reasoning',
+          },
+        ],
+        sourceUrl: 'https://docs.x.ai/docs/models?cluster=us-west-1',
+      },
+    ],
+    sharedHostedOffering: {
+      enabled: true,
+      label: 'Author Shared Key',
+      plan: 'pro',
+      priceAudMonthly: 2,
+    },
   });
 }
 
@@ -45,7 +119,7 @@ describe('PopupApp', () => {
     __resetAccessStoreForTests();
     vi.useRealTimers();
     vi.clearAllMocks();
-    vi.mocked(axios.request).mockResolvedValue(createOfferingResponse());
+    vi.mocked(axios.request).mockResolvedValue(createAccessCatalogResponse());
     Object.defineProperty(globalThis.navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -157,7 +231,7 @@ describe('PopupApp', () => {
   it('saves an API key and optimizes a prompt', async () => {
     const requestMock = vi.mocked(axios.request);
     requestMock
-      .mockResolvedValueOnce(createOfferingResponse())
+      .mockResolvedValueOnce(createAccessCatalogResponse())
       .mockResolvedValueOnce(
         createAxiosResponse({
           optimizedPrompt: 'Structured result',
@@ -202,7 +276,7 @@ describe('PopupApp', () => {
   it('re-enables optimization and badges the access panel when the saved API key is rejected', async () => {
     const requestMock = vi.mocked(axios.request);
     requestMock
-      .mockResolvedValueOnce(createOfferingResponse())
+      .mockResolvedValueOnce(createAccessCatalogResponse())
       .mockResolvedValueOnce(
         createAxiosResponse(
           {
@@ -252,7 +326,7 @@ describe('PopupApp', () => {
   it('times out a stalled optimize request and restores the button state', async () => {
     vi.useFakeTimers();
     const requestMock = vi.mocked(axios.request);
-    requestMock.mockResolvedValueOnce(createOfferingResponse());
+    requestMock.mockResolvedValueOnce(createAccessCatalogResponse());
     requestMock.mockImplementationOnce(async (config) => {
       const signal = config.signal as AbortSignal | undefined;
 

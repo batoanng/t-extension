@@ -10,13 +10,13 @@ export function AccessPanel() {
   const accessStore = useAccessStore();
   const {
     byok,
+    catalog,
     mode,
-    offering,
     pro,
     ready,
     openCheckout,
     openCustomerPortal,
-    refreshOffering,
+    refreshAccessCatalog,
     refreshSubscriptionStatus,
     removeByokConfig,
     saveByokConfig,
@@ -109,12 +109,27 @@ export function AccessPanel() {
 
           {mode === AccessMode.Byok ? (
             <div className="access-content">
+              {catalog.freshness === 'offline-cached' ? (
+                <InlineMessage>
+                  Using your last synced provider catalog. New models and price
+                  changes will appear after you reconnect.
+                </InlineMessage>
+              ) : null}
+
+              {catalog.errorMessage ? (
+                <InlineMessage tone={catalog.data ? undefined : 'error'}>
+                  {catalog.errorMessage}
+                </InlineMessage>
+              ) : null}
+
               {panelIssueMessage ? (
                 <InlineMessage tone="error">{panelIssueMessage}</InlineMessage>
               ) : null}
 
               <ApiKeySection
                 byokConfig={byok}
+                catalog={catalog.data}
+                catalogStatus={catalog.status}
                 isReady={ready}
                 onRemoveByokConfig={removeByokConfig}
                 onSaveByokConfig={saveByokConfig}
@@ -128,23 +143,31 @@ export function AccessPanel() {
                   after subscribing.
                 </p>
 
+                {catalog.freshness === 'offline-cached' ? (
+                  <InlineMessage>
+                    Showing the last synced price and provider catalog while
+                    offline.
+                  </InlineMessage>
+                ) : null}
+
                 {panelIssueMessage ? (
                   <InlineMessage tone="error">
                     {panelIssueMessage}
                   </InlineMessage>
                 ) : null}
 
-                {offering.status === 'ready' && offering.data ? (
+                {catalog.status === 'ready' && catalog.data ? (
                   <div className="price-band">
-                    <strong>A${offering.data.priceAudMonthly} / month</strong>
+                    <strong>
+                      A${catalog.data.sharedHostedOffering.priceAudMonthly} /
+                      month
+                    </strong>
                     <span>Shared hosted optimization access</span>
                   </div>
                 ) : null}
 
-                {offering.status === 'error' && offering.errorMessage ? (
-                  <InlineMessage tone="error">
-                    {offering.errorMessage}
-                  </InlineMessage>
+                {catalog.errorMessage && !catalog.data ? (
+                  <InlineMessage tone="error">{catalog.errorMessage}</InlineMessage>
                 ) : null}
 
                 {pro.auth.status === 'signed-out' ||
@@ -278,11 +301,11 @@ export function AccessPanel() {
                   <button
                     className="button button-ghost"
                     onClick={() => {
-                      void refreshOffering();
+                      void refreshAccessCatalog();
                     }}
                     type="button"
                   >
-                    Refresh pricing
+                    Refresh access catalog
                   </button>
                 </div>
               </div>

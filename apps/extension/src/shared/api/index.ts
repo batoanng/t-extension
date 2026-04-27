@@ -1,10 +1,14 @@
 export {
+  ACCESS_CATALOG_MESSAGE_TYPE,
   createCheckoutSession,
   createCustomerPortalSession,
+  type AccessCatalogMessageRequest,
+  type AccessCatalogMessageResponse,
   fetchMagicLinkStatus,
+  fetchAccessCatalog,
   fetchMySubscription,
-  fetchSubscriptionOffering,
   logout,
+  requestAccessCatalogFromBackground,
   refreshAuthSession,
   requestMagicLink,
 } from './accessApi';

@@ -1,9 +1,11 @@
 import type {
+  AccessCatalogFreshness,
+  AccessCatalogResponse,
   MagicLinkStatus,
   StoredAuthSession,
-  SubscriptionOffering,
   SubscriptionStatus,
 } from '@/shared/model/access';
+import { AccessCatalogResponseSchema } from '@/shared/model/access';
 
 import { requestJson } from './httpClient';
 
@@ -29,6 +31,20 @@ interface AuthResponse {
   };
 }
 
+export const ACCESS_CATALOG_MESSAGE_TYPE = 'access-catalog:get';
+
+export interface AccessCatalogMessageRequest {
+  serverBaseUrl: string;
+  type: typeof ACCESS_CATALOG_MESSAGE_TYPE;
+}
+
+export interface AccessCatalogMessageResponse {
+  catalog: AccessCatalogResponse | null;
+  errorMessage: string | null;
+  freshness: AccessCatalogFreshness | null;
+  ok: boolean;
+}
+
 function authHeaders(accessToken: string) {
   return {
     authorization: `Bearer ${accessToken}`,
@@ -46,17 +62,72 @@ function toStoredAuthSession(response: AuthResponse): StoredAuthSession {
   };
 }
 
-export async function fetchSubscriptionOffering(serverBaseUrl: string) {
-  const response = await requestJson<SubscriptionOffering>({
+export async function fetchAccessCatalog(serverBaseUrl: string) {
+  const response = await requestJson<AccessCatalogResponse>({
     baseUrl: serverBaseUrl,
-    pathname: '/api/v1/subscription/offering',
+    pathname: '/api/v1/access/catalog',
   });
 
   if (response.status < 200 || response.status >= 300 || !response.data) {
-    throw new Error('Unable to load subscription offering.');
+    throw new Error('Unable to load access catalog.');
   }
 
-  return response.data;
+  return AccessCatalogResponseSchema.parse(response.data);
+}
+
+export async function requestAccessCatalogFromBackground(
+  serverBaseUrl: string,
+): Promise<AccessCatalogMessageResponse> {
+  if (!globalThis.chrome?.runtime?.sendMessage) {
+    const catalog = await fetchAccessCatalog(serverBaseUrl);
+
+    return {
+      catalog,
+      errorMessage: null,
+      freshness: 'fresh',
+      ok: true,
+    };
+  }
+
+  return await new Promise<AccessCatalogMessageResponse>((resolve) => {
+    try {
+      chrome.runtime.sendMessage<AccessCatalogMessageRequest, AccessCatalogMessageResponse>(
+        {
+          serverBaseUrl,
+          type: ACCESS_CATALOG_MESSAGE_TYPE,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            resolve({
+              catalog: null,
+              errorMessage:
+                chrome.runtime.lastError.message ??
+                'Unable to load access catalog.',
+              freshness: null,
+              ok: false,
+            });
+            return;
+          }
+
+          resolve(
+            response ?? {
+              catalog: null,
+              errorMessage: 'Unable to load access catalog.',
+              freshness: null,
+              ok: false,
+            },
+          );
+        },
+      );
+    } catch {
+      resolve({
+        catalog: null,
+        errorMessage: 'Unable to load access catalog.',
+        freshness: null,
+        ok: false,
+      });
+    }
+  });
 }
 
 export async function requestMagicLink(input: {

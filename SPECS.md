@@ -4,691 +4,366 @@
 
 ## 1. Overview
 
-Developer Assistant is a Chrome extension for developers who want help turning rough requests into stronger prompts for AI coding tools.
+Developer Assistant is a Chrome extension that helps people turn rough requests into stronger prompts before sending work to AI assistants.
 
-The product now supports two operating modes:
+The product has two access paths:
 
-1. `Default BYOK OpenAI`
-2. `Developer Assistant Pro`
+1. `Bring Your Own Key`
+2. `Author Shared Key`
 
-The default path is BYOK. Users can install the extension, save their own OpenAI API key locally, and optimize prompts without creating an account.
-
-Developer Assistant Pro is the paid hosted path. Pro users log in, subscribe through Stripe, and use hosted prompt optimization powered by the app owner's DeepSeek API key. The user does not provide their own AI API key for Pro optimization.
-
-This spec replaces the earlier assumption that the entire product was single-mode BYOK with no auth or billing.
+The product must stay easy to start, clear to pay for, and resilient when a user has already synced access data at least once.
 
 ---
 
-## 2. Product goals
+## 2. Product Positioning
 
-### Primary goal
+### Core promise
 
-Ship a developer-focused extension with a clear commercial model:
+Developer Assistant gives users a better prompt-writing workflow without forcing a single purchasing model.
 
-- free-to-start default BYOK usage
-- optional paid hosted Pro subscription
-- simple upgrade path from BYOK to Pro
+Users can either:
 
-### First feature goal
+- connect their own supported AI account and pay their chosen provider directly
+- subscribe to a managed hosted experience and use the author's shared access
 
-Prompt Optimizer remains the first core feature, but it must now work across both product modes:
+### Commercial intent
 
-- BYOK users optimize with their own OpenAI key
-- Pro users optimize through the hosted service using the app owner's DeepSeek key
+The business model is designed to support:
 
-### Business goal
-
-Create a pricing and access model that:
-
-- keeps the product usable without sign-up friction
-- supports recurring revenue through Pro
-- makes hosted usage economically controllable via configurable monthly pricing in Australian dollars
+- immediate free-to-start adoption through BYOK
+- a low-friction paid upgrade for convenience
+- pricing and provider choice that can evolve without shipping a new extension release for every model change
 
 ---
 
-## 3. Product modes
+## 3. Access Model
 
-### 3.1 Default mode: BYOK OpenAI
+### 3.1 Bring Your Own Key
 
-This is the default entry path for the product.
+BYOK is the default path.
 
 Characteristics:
 
-- no account required
 - no login required
-- no Stripe subscription required
-- user adds and manages their own OpenAI API key
-- prompt optimization uses the user's OpenAI key
-- key is stored locally in the extension
+- no subscription required
+- users save their own provider API key locally
+- users choose from supported providers approved by the platform
+- users send optimization requests using their own external AI spend
 
-This mode should be available immediately after install.
+Supported provider families:
 
-### 3.2 Paid mode: Developer Assistant Pro
+- OpenAI
+- Claude
+- DeepSeek
+- Gemini
+- Grok
 
-This is the hosted subscription tier.
+### 3.2 Author Shared Key
+
+Author Shared Key is the managed hosted subscription path.
 
 Characteristics:
 
-- account login required
-- active paid subscription required
+- sign-in required
+- active subscription required
 - billing handled through Stripe
-- hosted prompt optimization uses the app owner's DeepSeek API key
-- user does not need to enter their own AI key for Pro optimization
+- the user does not manage their own provider API key for hosted optimization
+- the hosted provider can change behind the scenes without changing the public commercial offer
 
-Pro is an upgrade path, not the default requirement.
+### 3.3 Relationship Between Paths
 
-### 3.3 Relationship between the two modes
-
-- BYOK and Pro can coexist in the same product
-- users can start in BYOK and upgrade later
-- login must not block BYOK usage
-- Pro unlocks hosted optimization and future hosted premium features
-- BYOK remains available even if a Pro subscription is inactive, as long as the user provides their own OpenAI key
+- both paths can coexist in the same product
+- login must never be required just to use BYOK
+- subscription status only controls hosted access
+- users can move between BYOK and Author Shared Key without reinstalling or resetting the product
+- if hosted access becomes unavailable, the product should continue to guide the user toward BYOK rather than dead-ending the experience
 
 ---
 
-## 4. Pricing and billing model
+## 4. Backend-Driven Access Catalog
 
-### 4.1 Pricing
+### Source of truth
 
-Developer Assistant Pro uses a monthly recurring subscription.
+The backend owns the access catalog for the popup.
 
-Pricing requirements:
+The extension should treat the backend catalog as the commercial source of truth for:
 
-- price is displayed in `A$`
-- monthly price is configurable by the app owner
-- pricing must not be hardcoded in product copy or implementation assumptions
-- the extension and related product surfaces should read and display the currently configured Pro monthly price
+- supported provider list
+- model choices shown for each provider
+- default model presented for each provider
+- shared hosted offering label and price
+- freshness window for discovery data
 
-### 4.2 Billing provider
+### Why this matters
 
-Stripe is the billing system for Pro.
+The product should not hardcode model availability in the extension UI because provider catalogs change often and marketing promises should stay aligned with real availability.
 
-Stripe is responsible for:
+Business outcome:
+
+- users see provider/model choices that reflect the current supported market offer
+- the product can update default recommendations without waiting for a browser-store release
+- pricing and discovery copy remain consistent across popup sessions
+
+### Default model policy
+
+For each supported provider, the backend selects a default based on the latest stable public model listing from that provider's official documentation or reference pages.
+
+Business rule:
+
+- default to the latest stable model
+- do not default users to preview, experimental, or clearly unstable model lines
+
+This keeps the default choice current while avoiding surprise quality or availability swings from non-stable releases.
+
+---
+
+## 5. Discovery Freshness And Offline Behavior
+
+### Discovery data
+
+The extension relies on a cached copy of the backend access catalog for access discovery, including:
+
+- supported providers
+- available models
+- default models
+- hosted monthly price
+- the freshness window for that catalog
+
+### Default freshness policy
+
+The default freshness window is one day unless the backend publishes a different value.
+
+This means the product can refresh market-facing discovery data regularly without making the extension feel unstable or network-dependent on every open.
+
+### Offline business behavior
+
+If the user has already synced the catalog successfully at least once, the extension should remain usable for discovery while offline.
+
+Expected user experience:
+
+- the last successful provider list remains visible
+- the last successful model list remains visible
+- the last successful hosted price remains visible
+- the product may indicate that the catalog is cached or not freshly verified
+- cached discovery should not block the user from understanding their available access paths
+
+Important limitation:
+
+- first-run offline discovery is not guaranteed
+
+### Freshness states
+
+For product behavior, catalog freshness can be understood as:
+
+- `Fresh`: recently synced and trusted as current
+- `Stale`: older than the current freshness window but still available as the last known state
+- `Offline cached`: network refresh was not available, so the product is presenting the last successful snapshot
+
+These states help the product set expectations without forcing technical jargon on users.
+
+---
+
+## 6. Pricing And Billing
+
+### Hosted offer
+
+Author Shared Key is sold as a recurring monthly subscription.
+
+Pricing rules:
+
+- price is shown in Australian dollars
+- the default commercial position is `A$2/month`
+- the actual displayed price remains backend-configurable
+- user-facing surfaces should present the current configured price rather than assuming a fixed lifetime amount
+
+### Billing provider
+
+Stripe handles:
 
 - checkout
 - subscription creation
-- payment collection
 - renewals
-- cancellation handling
+- payment collection
+- cancellations
 - payment method updates
-- customer billing portal flows if provided
+- billing portal flows when available
 
-### 4.3 Plan model
+### Commercial framing
 
-The initial paid offer is a single Pro plan.
+BYOK is the cost-control path.
 
-For the first commercial version:
+Author Shared Key is the convenience path.
 
-- one monthly Pro plan is sufficient
-- annual pricing is out of scope
-- team billing is out of scope
-- usage-based metering is out of scope
+This distinction should stay obvious in product messaging:
 
----
-
-## 5. Authentication and access rules
-
-### 5.1 BYOK authentication rule
-
-BYOK does not require login.
-
-The user can:
-
-- install the extension
-- add an OpenAI API key
-- optimize prompts
-
-without creating an account.
-
-### 5.2 Pro authentication rule
-
-Pro requires login because the system must associate subscription state with a user account.
-
-The user must be able to:
-
-- sign up or log in
-- view Pro status
-- start Stripe checkout
-- return from checkout with updated access
-- manage billing
-
-### 5.3 Important product rule
-
-Login should only be enforced for Pro features.
-
-The extension must not force BYOK users through auth walls, account creation, or billing prompts before they can use the default prompt optimizer.
+- BYOK appeals to users who already manage provider spending
+- Author Shared Key appeals to users who want the simplest setup with predictable low-friction entry pricing
 
 ---
 
-## 6. User journeys
+## 7. Access Rules
 
-### 6.1 New user, default BYOK path
+### BYOK rules
 
-1. User installs the extension.
-2. User sees Prompt Optimizer with a BYOK option available by default.
-3. User adds their own OpenAI API key.
-4. User enters a raw prompt.
-5. The system optimizes the prompt using the user's OpenAI key.
-6. The user can continue without ever creating an account.
+- no sign-in required
+- user supplies their own provider key
+- user can choose from the currently supported providers and models published in the backend catalog
+- if a saved model is no longer available, the product should fall back to that provider's current default model
 
-### 6.2 New user, Pro upgrade path
+### Hosted rules
 
-1. User installs the extension.
-2. User sees an option to upgrade to Developer Assistant Pro.
-3. User chooses Pro.
-4. User signs up or logs in.
-5. User starts Stripe checkout.
-6. Stripe confirms an active subscription.
-7. The extension unlocks hosted optimization.
-8. User optimizes prompts without entering their own AI key.
-
-### 6.3 Existing Pro user
-
-1. User logs in.
-2. Extension fetches account and subscription state.
-3. If subscription is active, Pro hosted optimization is enabled.
-4. User can manage billing from the account area.
-
-### 6.4 Inactive subscription user
-
-1. User logs in.
-2. Extension detects the subscription is not active.
-3. Pro hosted optimization is disabled.
-4. User sees a clear status such as renew, update payment method, or resubscribe.
-5. User may continue in BYOK mode if they provide their own OpenAI key.
-
----
-
-## 7. Subscription states and required behavior
-
-### 7.1 Active subscription
-
-An active subscription unlocks:
-
-- Pro badge/status
-- hosted optimization
-- any future Pro-only hosted features
-
-### 7.2 Inactive subscription
-
-For this product, inactive includes states such as:
-
-- canceled
-- expired
-- unpaid
-- past due
-- incomplete and not recoverable
-- otherwise not entitled to Pro access
-
-Required product behavior:
-
-- do not allow Pro hosted optimization while inactive
-- show a clear billing/access message
-- provide a recovery action such as resubscribe or manage billing
-- do not delete the user's account just because the subscription is inactive
-- allow fallback to BYOK if the user has or adds a valid OpenAI key
-
-### 7.3 Graceful fallback rule
-
-If a formerly Pro user loses active status:
-
-- Pro-only hosted optimization must stop
-- saved Pro account access can remain for account and billing management
-- the extension should offer BYOK as the fallback path instead of turning the whole product into a dead end
-
----
-
-## 8. Prompt optimization model routing
-
-### 8.1 BYOK routing
-
-When the user is operating in BYOK mode:
-
-- the extension uses the user's OpenAI API key
-- the backend processes the request in BYOK mode
-- the server must not persist that key
-
-### 8.2 Pro routing
-
-When the user is operating in Pro mode:
-
-- the user must be logged in
-- the user must have an active subscription
-- the hosted optimization path uses the app owner's DeepSeek API key
-- the DeepSeek key remains server-side only
-
-### 8.3 Mode separation rules
-
-- a BYOK request must not silently consume the app owner's paid DeepSeek capacity
-- a Pro request must not require the user to add an OpenAI key
-- model/provider selection should be explicit in business logic and observability
-
----
-
-## 9. High-level architecture
-
-```txt
-Chrome Extension Popup
-        |
-        | User chooses available path
-        v
-Mode Routing
-   |                     |
-   | BYOK                | Pro
-   v                     v
-Local OpenAI key         Logged-in account + active subscription
-   |                     |
-   v                     v
-Backend BYOK flow        Backend hosted Pro flow
-   |                     |
-   | uses user's         | uses app owner's
-   | OpenAI key          | DeepSeek key
-   v                     v
-Prompt optimization result returned to extension
-```
-
----
-
-## 10. Extension responsibilities
-
-The extension is responsible for:
-
-- rendering Prompt Optimizer
-- letting users start in BYOK mode without login
-- saving the BYOK OpenAI key locally when the user chooses BYOK
-- showing Pro upsell and Pro status
-- supporting login entry points for Pro only
-- launching Stripe subscription flow for Pro
-- showing subscription state clearly
-- routing optimize actions to the correct mode
-- showing loading, success, and error states
-- allowing copy of the optimized prompt
-
-The extension should not:
-
-- require login for basic BYOK usage
-- expose the app owner's DeepSeek key
-- expose the user's saved OpenAI key after save
-- log secrets
-- keep Pro enabled when subscription state is inactive
-
----
-
-## 11. Backend responsibilities
-
-The backend is responsible for:
-
-- handling prompt optimization requests
-- distinguishing BYOK requests from Pro hosted requests
-- validating subscription status before allowing Pro optimization
-- integrating with Stripe for subscription state
-- using the app owner's DeepSeek key only for entitled Pro requests
-- using the user's OpenAI key only for BYOK requests
-- protecting secrets
-- returning user-safe errors
-
-The backend should not:
-
-- persist BYOK OpenAI keys
-- leak billing internals to the extension UI
-- allow inactive subscribers to continue using hosted Pro optimization
-- use the Pro hosted path for anonymous free traffic
-
----
-
-## 12. Prompt Optimizer feature definition
-
-### User story
-
-As a developer, I want to enter a rough prompt and receive a clearer, more structured prompt so that an AI coding tool can do better work.
-
-### Expected improvement behavior
-
-The optimized prompt should:
-
-- preserve the user's original intent
-- clarify the requested role and task
-- add useful structure
-- surface missing context as questions or placeholders
-- avoid invented facts
-- remain practical for coding workflows
-
-### Example raw prompt
-
-```txt
-fix my react code the page slow and state weird
-```
-
-### Example optimized prompt
-
-```txt
-You are a senior React and TypeScript engineer.
-
-Help me diagnose a React page with performance issues and inconsistent state behavior.
-
-Please do the following:
-
-1. Identify likely causes of unnecessary re-renders.
-2. Review state patterns that could lead to stale or inconsistent state.
-3. Suggest specific improvements using React best practices.
-4. Provide corrected code where appropriate.
-5. Ask for any missing component or state-management context before making risky assumptions.
-```
-
----
-
-## 13. UI and UX requirements
-
-### 13.1 Main product framing
-
-The popup should make the two product paths obvious:
-
-- `Use your own OpenAI key`
-- `Upgrade to Developer Assistant Pro`
-
-The default emphasis should remain on immediate usability, not on forced account creation.
-
-### 13.2 BYOK state
-
-When no BYOK key is saved:
-
-- show OpenAI key input
-- explain that no login is required for BYOK
-- disable optimize action until required input is present
-
-When a BYOK key is saved:
-
-- mask the key
-- allow replace or remove
-- allow prompt optimization in BYOK mode
-
-### 13.3 Pro state
-
-When logged out:
-
-- show Pro value proposition
-- allow login or sign-up entry point
-- do not block BYOK usage
-
-When logged in with active Pro:
-
-- show active Pro status
-- indicate that hosted optimization is available
-- do not ask for an OpenAI key for Pro usage
-
-When logged in with inactive Pro:
-
-- show inactive/past-due/canceled state clearly
-- disable hosted optimization
-- show recovery action
-- offer BYOK fallback if no active subscription is present
-
-### 13.4 Suggested messaging
-
-BYOK helper text:
-
-```txt
-Use your own OpenAI API key. No account required.
-```
-
-Pro helper text:
-
-```txt
-Upgrade to Developer Assistant Pro for hosted optimization with no personal AI key required.
-```
-
-Inactive Pro text:
-
-```txt
-Your Pro subscription is inactive. Renew Pro to use hosted optimization, or continue with your own OpenAI key.
-```
-
----
-
-## 14. Stripe subscription flow
-
-### 14.1 Checkout flow
-
-Required business flow:
-
-1. User selects Pro.
-2. User signs up or logs in.
-3. User starts Stripe checkout.
-4. Stripe creates or updates the subscription.
-5. Product returns the user to the extension/app flow.
-6. Subscription state is refreshed.
-7. Pro access is granted only after the subscription is confirmed active.
-
-### 14.2 Billing management flow
-
-The user should be able to:
-
-- view current Pro status
-- open billing management
-- update payment method
-- cancel subscription
-- recover an inactive subscription
-
-### 14.3 Pricing display rule
-
-Every user-facing Pro purchase surface should display the configured monthly Pro price in Australian dollars.
-
-Do not bake a fixed A$ amount into documentation, product logic, or acceptance criteria.
-
----
-
-## 15. Security and privacy requirements
-
-### 15.1 BYOK key handling
-
-The user's OpenAI API key:
-
-- is stored locally in the extension
-- is only used for BYOK optimization
-- must not be persisted remotely
-- must not be logged in plain text
-
-### 15.2 Pro key handling
-
-The app owner's DeepSeek API key:
-
-- is stored server-side only
-- is never exposed to the extension
-- is used only for active Pro hosted optimization
-- must not be logged in plain text
-
-### 15.3 Account and billing data
-
-The product may store the minimum account and subscription data required for:
-
-- authentication
-- entitlement checks
-- billing support
-- subscription lifecycle handling
-
-The product should not store more prompt data or billing detail than necessary for the user experience and operations.
-
----
-
-## 16. Logging requirements
-
-Allowed:
-
-- optimization request received
-- optimization completed
-- Stripe checkout started
-- subscription state refreshed
-- hosted optimization denied because subscription inactive
-
-Not allowed:
-
-- raw BYOK OpenAI key
-- app owner's DeepSeek key
-- full payment card data
-- unnecessary full prompt logs in production
-
----
-
-## 17. Validation and entitlement rules
-
-### 17.1 BYOK rules
-
-- OpenAI key required for BYOK optimization
-- no login required
-- optimize action disabled if key or prompt is missing
-
-### 17.2 Pro rules
-
-- login required
+- sign-in required
 - active subscription required
-- optimize action through hosted Pro path disabled when subscription is inactive
-- user should see a clear next step if blocked by billing state
+- hosted optimization should be presented as `Shared Hosted` or `Author Shared Key`, not by naming the upstream provider in customer-facing UI
 
-### 17.3 Prompt validation
+### Fallback rules
 
-For both modes:
+If hosted access is inactive or unavailable:
 
-- prompt is required
-- prompt should be trimmed
-- empty or clearly invalid submissions should be rejected
-
----
-
-## 18. Error handling UX
-
-The product should present business-readable errors instead of low-level provider detail.
-
-Examples:
-
-- missing BYOK key
-- login required for Pro
-- Pro subscription inactive
-- Stripe checkout could not be started
-- hosted optimization temporarily unavailable
-- AI provider request failed
-
-Suggested user-facing messages:
-
-```txt
-Add your OpenAI API key to use BYOK mode.
-```
-
-```txt
-Log in to use Developer Assistant Pro.
-```
-
-```txt
-Your Pro subscription is inactive. Renew billing or continue in BYOK mode.
-```
-
-```txt
-Unable to start checkout right now. Please try again.
-```
-
-```txt
-Prompt optimization is temporarily unavailable. Please try again later.
-```
+- hosted optimization must be disabled
+- recovery actions such as subscribe, renew, or manage billing should remain visible
+- BYOK should remain available as the fallback path
 
 ---
 
-## 19. Acceptance criteria
+## 8. Customer Journeys
 
-### 19.1 BYOK path
+### 8.1 New user with BYOK
 
-- [ ] A user can use the extension in BYOK mode without creating an account.
-- [ ] A user can enter, save, replace, and remove an OpenAI API key locally.
-- [ ] The saved BYOK key is masked after save.
-- [ ] Prompt optimization works in BYOK mode with the user's OpenAI key.
-- [ ] The product clearly explains that BYOK does not require login.
+1. User installs the extension.
+2. User sees that BYOK is available immediately.
+3. User chooses a supported provider.
+4. User selects a currently available model from the backend-managed catalog.
+5. User saves their own key locally.
+6. User uses Prompt Optimizer without creating an account.
 
-### 19.2 Pro path
+### 8.2 New user upgrading to Author Shared Key
 
-- [ ] A user can log in specifically for Pro access.
-- [ ] A logged-in user can start a Stripe checkout flow for Pro.
-- [ ] The product displays the configured Pro monthly price in A$.
-- [ ] A user with an active Pro subscription can use hosted optimization without entering a personal AI key.
-- [ ] Hosted Pro optimization uses the app owner's DeepSeek key and not a user BYOK key.
+1. User installs the extension.
+2. User sees the hosted subscription option and current monthly price.
+3. User signs in.
+4. User completes Stripe checkout.
+5. The product refreshes access state.
+6. Hosted optimization becomes available without the user needing to manage a personal API key.
 
-### 19.3 Subscription lifecycle
+### 8.3 Returning user while offline
 
-- [ ] The product can distinguish active vs inactive Pro subscription states.
-- [ ] Hosted Pro optimization is blocked when subscription status is inactive.
-- [ ] The product shows a clear recovery action for inactive subscriptions.
-- [ ] A user with an inactive Pro subscription can still use BYOK mode if they add their own OpenAI key.
+1. User has previously opened the extension while online.
+2. User later opens the extension without connectivity.
+3. The extension shows the last successful access catalog snapshot.
+4. The user can still understand their saved provider/model choices and hosted offer state from cached discovery data.
 
-### 19.4 Security and clarity
+### 8.4 Returning subscriber with inactive billing
 
-- [ ] The user's OpenAI BYOK key is not permanently stored on the server.
-- [ ] The app owner's DeepSeek key is never exposed to the client.
-- [ ] Login is not required for default BYOK usage.
-- [ ] Product messaging clearly differentiates BYOK from Pro.
-- [ ] Production logging avoids secrets.
+1. User signs in.
+2. The extension detects hosted access is inactive.
+3. The hosted path is shown as unavailable until billing is recovered.
+4. The product offers billing recovery actions.
+5. The user can still continue with BYOK if they choose.
 
 ---
 
-## 20. Non-goals for this commercial version
+## 9. Prompt Optimizer Positioning
 
-This version should not include:
+Prompt Optimizer remains the first commercial feature across both access paths.
 
-- forcing all users to register before first use
+The business promise is the same regardless of access mode:
+
+- users provide a rough request
+- Developer Assistant returns a clearer, more structured prompt
+- the improved prompt is ready to copy into the user's preferred AI tool
+
+The product should not frame Prompt Optimizer as locked to a single downstream agent type. It should support broader use cases such as:
+
+- general requests
+- design work
+- technical planning
+- solution architecture
+- testing strategy
+- deployment planning
+
+---
+
+## 10. Messaging Requirements
+
+### Access panel framing
+
+The popup should make the two paths obvious:
+
+- `Use Your Own Key`
+- `Use Author Shared Key`
+
+### BYOK messaging principles
+
+- emphasize immediate access
+- emphasize provider choice
+- emphasize that no sign-in is required
+
+### Hosted messaging principles
+
+- emphasize convenience
+- emphasize subscription requirement
+- emphasize that the user is using shared hosted access rather than managing a personal key
+- avoid naming the hidden upstream provider in public UI copy
+
+### Discovery messaging principles
+
+When catalog data is cached or not freshly refreshed, the product should communicate that calmly and clearly.
+
+Good framing:
+
+- access options are based on the last successful sync
+- pricing and model availability may refresh when the extension reconnects
+
+Bad framing:
+
+- technical cache jargon
+- messages that imply the product is broken when cached discovery is still usable
+
+---
+
+## 11. Security And Trust Expectations
+
+### BYOK trust promise
+
+- user-managed keys stay local
+- the product does not require an account just to use BYOK
+- the product should not imply that the user's provider relationship is transferred to Developer Assistant
+
+### Hosted trust promise
+
+- hosted optimization runs only for entitled subscribed users
+- the author's shared access is not exposed as a raw key to the user
+- billing state should be clear enough that users understand why hosted access is or is not available
+
+### Discovery trust promise
+
+- provider/model discovery should reflect curated backend support, not arbitrary frontend guesses
+- cached offline discovery should present the last known valid state, not invented or placeholder availability
+
+---
+
+## 12. Non-Goals For This Product Slice
+
+Out of scope for the current commercial model:
+
+- usage-based hosted billing
 - annual plans
-- team plans
-- seat management
-- credits marketplace
-- multiple Pro tiers
-- deep technical provider controls exposed to users
-- large prompt history platform features
+- team billing
+- first-run offline setup guarantees
+- customer-facing promises that every provider's newest experimental release will appear immediately
 
 ---
 
-## 21. Revised roadmap
+## 13. Acceptance Criteria
 
-### Phase 1: Dual-mode foundation
+The product behavior is correct when:
 
-- launch default BYOK OpenAI flow
-- add Pro account login flow
-- add Stripe monthly subscription in A$
-- gate hosted optimization behind active Pro
-- support inactive-subscription fallback to BYOK
-
-### Phase 2: Conversion and retention
-
-- improve Pro upgrade surfaces
-- add billing management polish
-- improve subscription-state messaging
-- add recovery flows for failed payments and cancellations
-
-### Phase 3: Product expansion
-
-- add more prompt templates
-- add agent-specific optimization styles
-- add saved prompt history
-- add reusable personal presets
-
-### Phase 4: Premium expansion
-
-- add more hosted Pro-only developer workflows
-- add higher-value premium features beyond prompt optimization
-- evaluate team and workspace features only after the single-user Pro model is stable
-
----
-
-## 22. Open questions
-
-These should be decided before implementation is considered final:
-
-1. Should inactive Pro users keep access to any non-hosted premium UI, or should all Pro UI collapse to billing recovery plus BYOK fallback?
-2. Should the extension remember the user's last-selected mode between BYOK and Pro?
-3. Should there be a free logged-in account state for future non-Pro features, or should auth continue to exist only for Pro?
-4. Should Pro include quotas or fair-use protections later, even though the initial offer is a simple monthly plan?
-
----
-
-## 23. Recommended positioning
-
-Recommended product message:
-
-```txt
-Start free with your own OpenAI key. Upgrade to Developer Assistant Pro for hosted optimization with no personal AI key required.
-```
+- BYOK is still available without sign-in
+- supported providers are platform-defined and consistently presented
+- model choices and default recommendations come from the backend access catalog
+- the hosted offer price shown in the extension matches backend-configured pricing
+- the hosted path is framed as Author Shared Key or Shared Hosted access rather than exposing the hidden upstream provider
+- discovery remains usable from the last successful sync when the user is offline
+- stale or offline-cached discovery does not prevent users from understanding or choosing an access path
+- inactive hosted subscribers are guided toward recovery or BYOK fallback instead of facing a blocked product

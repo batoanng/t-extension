@@ -4,37 +4,65 @@ Developer Assistant is a Chrome extension for people who want to turn rough requ
 
 ## Business Model
 
-Developer Assistant now has two clear commercial paths:
+Developer Assistant has two customer paths:
 
-- `Bring Your Own Key`: users connect their own model account and pay their chosen AI provider directly.
-- `Author Shared Key`: users subscribe to a managed hosted experience and use the author’s shared access instead of managing their own key.
+- `Bring Your Own Key`: users connect their own supported AI provider account and pay that provider directly.
+- `Author Shared Key`: users subscribe to a managed hosted experience and use the author's shared access instead of managing a personal API key.
 
-This creates a simple free-to-start product with a clear paid upgrade for convenience.
+This keeps the product free to start while creating a simple paid upgrade for convenience.
 
-## Customer Paths
+## Access Experience
 
-### 1. Bring Your Own Key
+### Bring Your Own Key
 
-- Available immediately after install.
-- No login required.
-- Supports users who already pay for AI usage elsewhere.
-- Lets users choose from supported providers: OpenAI, Claude, DeepSeek, Gemini, and Grok.
-- Best for cost-conscious users, teams with existing AI budgets, and people who want full control over provider choice.
+- available immediately after install
+- no sign-in required
+- built for users who already manage AI spend elsewhere
+- supports platform-approved providers, with current model choices managed by the backend catalog
 
-### 2. Author Shared Key
+### Author Shared Key
 
-- Built for users who want the simplest setup.
-- Requires sign-in because subscription access must be tied to an account.
-- Uses a recurring Stripe subscription.
-- Default product price is positioned at `A$2/month`, with pricing still configurable by the app owner.
-- Best for users who want a low-friction hosted option without setting up their own API key.
+- built for users who want the simplest setup
+- requires sign-in because hosted access is tied to subscription state
+- uses Stripe for recurring billing
+- positioned at `A$2/month` by default, while remaining configurable by the business
 
-## Billing And Access
+## Backend-Driven Access Catalog
 
-- Login is required only for the subscription path and account management.
-- Stripe handles checkout, renewals, cancellations, and payment method updates.
-- An active subscription unlocks hosted prompt optimization and future premium hosted features.
-- If a subscription becomes inactive, users can still fall back to Bring Your Own Key at any time.
+Developer Assistant does not treat provider and model discovery as static extension copy.
+
+Instead, the product relies on a backend-managed access catalog that defines:
+
+- which providers are currently supported
+- which model choices are available for each provider
+- which model is recommended as the default for each provider
+- what hosted monthly price should be shown
+
+Business outcome:
+
+- the extension can keep current provider/model options without requiring a browser-store update for every catalog change
+- the default recommendation can follow the latest stable public model from each supported provider
+- pricing and access messaging stay aligned with the live commercial offer
+
+## Offline-Cached Discovery
+
+After at least one successful sync, the extension keeps the latest access catalog available locally.
+
+That means users can still open the product offline and see the last known:
+
+- supported providers
+- model choices
+- hosted price
+- saved access path context
+
+This is a product reliability feature, not a promise of first-run offline setup. The goal is to keep access discovery understandable even when the network is unavailable.
+
+## Billing And Access Rules
+
+- login is required only for the hosted subscription path
+- Stripe handles checkout, renewals, cancellations, and payment method updates
+- an active subscription unlocks hosted prompt optimization
+- if hosted access becomes inactive, users can still continue with Bring Your Own Key
 
 ## Current Offer
 
@@ -42,16 +70,18 @@ The first commercial feature is Prompt Optimizer:
 
 - users enter a rough prompt
 - Developer Assistant rewrites it into a clearer, more actionable request
-- users copy the improved result into their preferred AI assistant
+- the result is ready to paste into the user's preferred AI assistant
+
+Prompt Optimizer is designed for broader work than coding alone, including general requests, design work, technical planning, architecture, testing, and deployment planning.
 
 ## Product Direction
 
 Near-term priorities:
 
-- make the two-path pricing story obvious in the extension
-- keep Bring Your Own Key attractive as the default entry point
-- grow the hosted subscription into the main convenience upgrade
-- expand premium workflow helpers after the core billing flow is stable
+- keep the two-path pricing story obvious in the extension
+- make backend-managed provider and pricing discovery the source of truth
+- preserve a dependable offline-cached experience after initial sync
+- grow Author Shared Key into the main convenience upgrade
 
 Longer-term opportunities:
 

@@ -5,12 +5,19 @@ import {
   createCustomerPortalSession,
   fetchMagicLinkStatus,
   fetchMySubscription,
-  fetchSubscriptionOffering,
   logout,
   refreshAuthSession,
+  requestAccessCatalogFromBackground,
   requestMagicLink,
 } from '@/shared/api';
 import { env } from '@/shared/config';
+import {
+  createCatalogMetadata,
+  getCatalogFreshness,
+  readCachedCatalogSnapshot,
+  readCatalogMetadata,
+  writeCatalogMetadata,
+} from '@/shared/lib/accessCatalogCache';
 import {
   getStoredJson,
   getStoredString,
@@ -20,22 +27,19 @@ import {
   subscribeToStoredString,
 } from '@/shared/lib/chromeStorage';
 import {
-  byokProviders,
-  createDefaultByokConfig,
   type AccessIssue,
+  type AccessSnapshot,
   AccessMode,
   type ByokProvider,
-  getDefaultByokModel,
-  MagicLinkStatus,
+  createDefaultByokConfig,
   getAccessGateMessage,
+  MagicLinkStatus,
+  reconcileByokConfig,
   resolveByokModel,
-} from '@/shared/model/access';
-import type {
-  AccessSnapshot,
-  OptimizeAccess,
-  StoredByokConfig,
-  StoredAuthSession,
-  SubscriptionStatus,
+  type OptimizeAccess,
+  type StoredAuthSession,
+  type StoredByokConfig,
+  type SubscriptionStatus,
 } from '@/shared/model/access';
 import {
   type PromptApiClientErrorCode,
@@ -52,12 +56,13 @@ const magicLinkPollIntervalMs = 2_000;
 
 const initialSnapshot: AccessSnapshot = {
   byok: createDefaultByokConfig(),
-  mode: AccessMode.Byok,
-  offering: {
+  catalog: {
     data: null,
     errorMessage: null,
+    freshness: null,
     status: 'idle',
   },
+  mode: AccessMode.Byok,
   pro: {
     auth: {
       status: 'signed-out',
@@ -67,11 +72,11 @@ const initialSnapshot: AccessSnapshot = {
       subscription: null,
     },
   },
+  ready: false,
   ui: {
     accessIssue: null,
     accessPanelCollapsed: false,
   },
-  ready: false,
 };
 
 let currentSnapshot = initialSnapshot;
@@ -83,6 +88,7 @@ let releaseByokConfigSubscription: (() => void) | null = null;
 let releaseAuthSessionSubscription: (() => void) | null = null;
 let magicLinkPollTimer: ReturnType<typeof setInterval> | null = null;
 let refreshPromise: Promise<StoredAuthSession | null> | null = null;
+let refreshCatalogPromise: Promise<void> | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -115,51 +121,32 @@ function parseStoredBoolean(value: string | null): boolean | null {
 
 function parseStoredByokConfig(
   storedValue: string | null,
-  legacyApiKey: string | null = null,
+  legacyApiKey: string | null,
+  catalog: AccessSnapshot['catalog']['data'],
 ): StoredByokConfig {
-  const fallback = createDefaultByokConfig();
+  let parsed: Partial<StoredByokConfig> | null = null;
 
-  if (!storedValue) {
-    return {
-      ...fallback,
-      apiKey: legacyApiKey?.trim() || null,
-    };
+  if (storedValue) {
+    try {
+      parsed = JSON.parse(storedValue) as Partial<StoredByokConfig>;
+    } catch {
+      parsed = null;
+    }
   }
 
-  try {
-    const parsed = JSON.parse(storedValue) as Partial<StoredByokConfig>;
-    const provider =
-      parsed.provider &&
-      typeof parsed.provider === 'string' &&
-      byokProviders.includes(parsed.provider as ByokProvider)
-        ? (parsed.provider as ByokProvider)
-        : fallback.provider;
-    const selectedModel =
-      typeof parsed.selectedModel === 'string' && parsed.selectedModel.trim()
-        ? parsed.selectedModel.trim()
-        : getDefaultByokModel(provider);
+  const nextConfig = reconcileByokConfig(catalog, {
+    ...parsed,
+    apiKey:
+      typeof parsed?.apiKey === 'string'
+        ? parsed.apiKey
+        : legacyApiKey,
+  });
 
-    return {
-      apiKey:
-        typeof parsed.apiKey === 'string'
-          ? parsed.apiKey.trim()
-          : legacyApiKey?.trim() || null,
-      customModel:
-        typeof parsed.customModel === 'string' ? parsed.customModel : '',
-      provider,
-      selectedModel,
-    };
-  } catch {
-    return {
-      ...fallback,
-      apiKey: legacyApiKey?.trim() || null,
-    };
-  }
+  return nextConfig;
 }
 
 function getDefaultAccessPanelCollapsed(input: {
   byokConfig: StoredByokConfig;
-  mode: string | null;
   storedValue: string | null;
 }) {
   const storedValue = parseStoredBoolean(input.storedValue);
@@ -218,23 +205,47 @@ async function persistAuthSession(session: StoredAuthSession | null) {
   }
 }
 
+async function persistByokConfig(config: StoredByokConfig) {
+  await setStoredJson(BYOK_CONFIG_STORAGE_KEY, config);
+  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
+}
+
 async function hydrateSnapshot() {
-  const [mode, accessPanelCollapsed, byokConfigJson, legacyApiKey, authSession] =
-    await Promise.all([
-      getStoredString(ACCESS_MODE_STORAGE_KEY),
-      getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
-      getStoredString(BYOK_CONFIG_STORAGE_KEY),
-      getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
-      getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
-    ]);
-  const byokConfig = parseStoredByokConfig(byokConfigJson, legacyApiKey);
+  const catalogMetadata = readCatalogMetadata();
+  const [
+    mode,
+    accessPanelCollapsed,
+    byokConfigJson,
+    legacyApiKey,
+    authSession,
+    cachedCatalog,
+  ] = await Promise.all([
+    getStoredString(ACCESS_MODE_STORAGE_KEY),
+    getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
+    getStoredString(BYOK_CONFIG_STORAGE_KEY),
+    getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
+    getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
+    readCachedCatalogSnapshot(),
+  ]);
+  const byokConfig = parseStoredByokConfig(
+    byokConfigJson,
+    legacyApiKey,
+    cachedCatalog,
+  );
 
   currentAuthSession = authSession;
 
   setSnapshot({
     byok: byokConfig,
+    catalog: {
+      data: cachedCatalog,
+      errorMessage: null,
+      freshness: cachedCatalog
+        ? getCatalogFreshness(catalogMetadata)
+        : null,
+      status: cachedCatalog ? 'ready' : 'loading',
+    },
     mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
-    offering: currentSnapshot.offering,
     pro: {
       auth: authSession
         ? {
@@ -254,18 +265,17 @@ async function hydrateSnapshot() {
             subscription: null,
           },
     },
+    ready: true,
     ui: {
       accessIssue: null,
       accessPanelCollapsed: getDefaultAccessPanelCollapsed({
         byokConfig,
-        mode,
         storedValue: accessPanelCollapsed,
       }),
     },
-    ready: true,
   });
 
-  void refreshOffering();
+  void refreshAccessCatalog();
 
   if (authSession) {
     void refreshSubscriptionStatus();
@@ -306,7 +316,11 @@ function ensureHydrated() {
     (byokConfigJson) => {
       updateSnapshot((snapshot) => ({
         ...snapshot,
-        byok: parseStoredByokConfig(byokConfigJson, snapshot.byok.apiKey),
+        byok: parseStoredByokConfig(
+          byokConfigJson,
+          snapshot.byok.apiKey,
+          snapshot.catalog.data,
+        ),
       }));
     },
   );
@@ -350,36 +364,87 @@ function getSnapshot() {
   return currentSnapshot;
 }
 
-async function refreshOffering() {
+async function refreshAccessCatalog() {
+  if (refreshCatalogPromise) {
+    return refreshCatalogPromise;
+  }
+
   updateSnapshot((snapshot) => ({
     ...snapshot,
-    offering: {
-      ...snapshot.offering,
+    catalog: {
+      ...snapshot.catalog,
       errorMessage: null,
-      status: 'loading',
+      status: snapshot.catalog.data ? 'ready' : 'loading',
     },
   }));
 
-  try {
-    const offering = await fetchSubscriptionOffering(env.serverBaseUrl);
-    updateSnapshot((snapshot) => ({
-      ...snapshot,
-      offering: {
-        data: offering,
-        errorMessage: null,
-        status: 'ready',
-      },
+  refreshCatalogPromise = (async () => {
+    const response = await requestAccessCatalogFromBackground(
+      env.serverBaseUrl,
+    ).catch(() => ({
+      catalog: null,
+      errorMessage: 'Unable to load access catalog.',
+      freshness: null,
+      ok: false,
     }));
-  } catch {
+
+    if (response.ok && response.catalog) {
+      const metadata = createCatalogMetadata(response.catalog);
+      writeCatalogMetadata(metadata);
+      const nextByokConfig = reconcileByokConfig(
+        response.catalog,
+        currentSnapshot.byok,
+      );
+
+      if (
+        nextByokConfig.provider !== currentSnapshot.byok.provider ||
+        nextByokConfig.selectedModel !== currentSnapshot.byok.selectedModel
+      ) {
+        await persistByokConfig(nextByokConfig);
+      }
+
+      updateSnapshot((snapshot) => ({
+        ...snapshot,
+        byok: nextByokConfig,
+        catalog: {
+          data: response.catalog,
+          errorMessage: null,
+          freshness:
+            response.freshness ?? getCatalogFreshness(metadata),
+          status: 'ready',
+        },
+      }));
+      return;
+    }
+
+    if (currentSnapshot.catalog.data) {
+      updateSnapshot((snapshot) => ({
+        ...snapshot,
+        catalog: {
+          ...snapshot.catalog,
+          errorMessage:
+            response.errorMessage ?? 'Using the last synced provider catalog.',
+          freshness: 'offline-cached',
+          status: 'ready',
+        },
+      }));
+      return;
+    }
+
     updateSnapshot((snapshot) => ({
       ...snapshot,
-      offering: {
+      catalog: {
         data: null,
-        errorMessage: 'Unable to load shared hosted access pricing.',
+        errorMessage: response.errorMessage ?? 'Unable to load the provider catalog.',
+        freshness: null,
         status: 'error',
       },
     }));
-  }
+  })().finally(() => {
+    refreshCatalogPromise = null;
+  });
+
+  return refreshCatalogPromise;
 }
 
 async function clearAuthState() {
@@ -622,7 +687,7 @@ async function setMode(mode: AccessMode) {
   }));
 
   if (mode === AccessMode.Pro) {
-    void refreshOffering();
+    void refreshAccessCatalog();
 
     if (currentAuthSession) {
       void refreshSubscriptionStatus();
@@ -637,15 +702,13 @@ async function setMode(mode: AccessMode) {
 }
 
 async function saveByokConfig(input: StoredByokConfig) {
-  const nextByokConfig: StoredByokConfig = {
+  const nextByokConfig = reconcileByokConfig(currentSnapshot.catalog.data, {
     apiKey: input.apiKey?.trim() || null,
-    customModel: input.customModel.trim(),
     provider: input.provider,
     selectedModel: input.selectedModel,
-  };
+  });
 
-  await setStoredJson(BYOK_CONFIG_STORAGE_KEY, nextByokConfig);
-  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
+  await persistByokConfig(nextByokConfig);
   updateSnapshot((snapshot) => ({
     ...snapshot,
     byok: nextByokConfig,
@@ -658,13 +721,12 @@ async function saveByokConfig(input: StoredByokConfig) {
 }
 
 async function removeByokConfig() {
-  const resetByokConfig = {
+  const resetByokConfig = reconcileByokConfig(currentSnapshot.catalog.data, {
     ...currentSnapshot.byok,
     apiKey: null,
-  };
+  });
 
-  await setStoredJson(BYOK_CONFIG_STORAGE_KEY, resetByokConfig);
-  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
+  await persistByokConfig(resetByokConfig);
   updateSnapshot((snapshot) => ({
     ...snapshot,
     byok: resetByokConfig,
@@ -866,6 +928,7 @@ export function __resetAccessStoreForTests() {
   releaseByokConfigSubscription = null;
   releaseAuthSessionSubscription?.();
   releaseAuthSessionSubscription = null;
+  refreshCatalogPromise = null;
   refreshPromise = null;
   currentAuthSession = null;
   currentSnapshot = initialSnapshot;
@@ -882,10 +945,10 @@ export function useAccessStore() {
     openCheckout,
     openCustomerPortal,
     prepareOptimizeAccess,
-    reportOptimizeFailure,
-    refreshOffering,
+    refreshAccessCatalog,
     refreshSubscriptionStatus,
     removeByokConfig,
+    reportOptimizeFailure,
     saveByokConfig,
     sendMagicLink,
     setAccessPanelCollapsed,

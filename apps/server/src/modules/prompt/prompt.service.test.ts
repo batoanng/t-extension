@@ -10,6 +10,7 @@ const promptTestConfig: Config = Object.freeze({
   ACCESS_SECRET: 'access-secret',
   API_PORT: 3000,
   API_VERSION: 1,
+  ACCESS_CATALOG_CACHE_TTL_SECONDS: 86_400,
   CORS_ORIGIN: ['http://localhost:3001'],
   DATABASE_URL: 'mongodb://localhost:27017/nest',
   DEEPSEEK_API_KEY: 'deepseek-test',

@@ -34,6 +34,10 @@ const manifest = {
       128: 'icons/icon128.png',
     },
   },
+  background: {
+    service_worker: 'background.js',
+    type: 'module',
+  },
   permissions: ['storage'],
   host_permissions: getHostPermissions(
     env.VITE_SERVER_BASE_URL?.trim() || 'http://localhost:3000',

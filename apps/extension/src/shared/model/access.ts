@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export enum AccessMode {
   Byok = 'byok',
   Pro = 'pro',
@@ -20,12 +22,6 @@ export const byokProviders = [
 export type ByokProvider = (typeof byokProviders)[number];
 
 export const DEFAULT_BYOK_PROVIDER: ByokProvider = 'openai';
-export const CUSTOM_MODEL_OPTION_VALUE = '__custom_model__';
-
-export interface ByokModelOption {
-  label: string;
-  value: string;
-}
 
 const byokProviderLabels: Record<ByokProvider, string> = {
   claude: 'Claude',
@@ -35,30 +31,48 @@ const byokProviderLabels: Record<ByokProvider, string> = {
   openai: 'OpenAI',
 };
 
-const byokProviderModelOptions: Record<ByokProvider, ByokModelOption[]> = {
-  claude: [
-    { label: 'Claude Sonnet 4', value: 'claude-sonnet-4-20250514' },
-    { label: 'Claude 3.7 Sonnet', value: 'claude-3-7-sonnet-latest' },
-  ],
-  deepseek: [
-    { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
-    { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
-  ],
-  gemini: [
-    { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
-    { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro' },
-  ],
-  grok: [
-    { label: 'Grok 4.20 Reasoning', value: 'grok-4.20-reasoning' },
-    { label: 'Grok 3', value: 'grok-3' },
-  ],
-  openai: [
-    { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-    { label: 'GPT-4.1', value: 'gpt-4.1' },
-  ],
-};
+export const AccessCatalogModelSchema = z.object({
+  id: z.string().trim().min(1),
+  label: z.string().trim().min(1),
+});
+
+export const AccessCatalogProviderSchema = z.object({
+  id: z.enum(byokProviders),
+  label: z.string().trim().min(1),
+  sourceUrl: z.string().trim().url(),
+  defaultModelId: z.string().trim().min(1),
+  fetchedAt: z.string().datetime(),
+  models: z.array(AccessCatalogModelSchema).min(1),
+});
+
+export const AccessCatalogResponseSchema = z.object({
+  cacheTtlSeconds: z.number().int().positive(),
+  generatedAt: z.string().datetime(),
+  providers: z.array(AccessCatalogProviderSchema).min(1),
+  sharedHostedOffering: z.object({
+    enabled: z.boolean(),
+    label: z.literal('Author Shared Key'),
+    plan: z.literal('pro'),
+    priceAudMonthly: z.number().positive(),
+  }),
+});
+
+export type AccessCatalogModel = z.infer<typeof AccessCatalogModelSchema>;
+export type AccessCatalogProviderEntry = z.infer<
+  typeof AccessCatalogProviderSchema
+>;
+export type AccessCatalogResponse = z.infer<typeof AccessCatalogResponseSchema>;
+
+export type AccessCatalogFreshness = 'fresh' | 'stale' | 'offline-cached';
+
+export interface CachedAccessCatalogMetadata {
+  expiresAt: number;
+  generatedAt: string;
+  version: number;
+}
 
 export type AccessIssueCode =
+  | 'catalog-unavailable'
   | 'invalid-api-key'
   | 'missing-api-key'
   | 'missing-model'
@@ -85,17 +99,8 @@ export interface StoredAuthSession {
 
 export interface StoredByokConfig {
   apiKey: string | null;
-  customModel: string;
   provider: ByokProvider;
   selectedModel: string;
-}
-
-export interface SubscriptionOffering {
-  currency: 'AUD';
-  enabled: boolean;
-  plan: 'pro';
-  priceAudMonthly: number;
-  provider: 'deepseek';
 }
 
 export interface SubscriptionStatus {
@@ -127,12 +132,13 @@ export type OptimizeAccess =
 
 export interface AccessSnapshot {
   byok: StoredByokConfig;
-  mode: AccessMode;
-  offering: {
-    data: SubscriptionOffering | null;
+  catalog: {
+    data: AccessCatalogResponse | null;
     errorMessage: string | null;
+    freshness: AccessCatalogFreshness | null;
     status: 'idle' | 'loading' | 'ready' | 'error';
   };
+  mode: AccessMode;
   pro: {
     auth:
       | {
@@ -161,14 +167,16 @@ export interface AccessSnapshot {
           subscription: SubscriptionStatus | null;
         };
   };
+  ready: boolean;
   ui: {
     accessIssue: AccessIssue | null;
     accessPanelCollapsed: boolean;
   };
-  ready: boolean;
 }
 
 export type AccessGateBlockedReason =
+  | 'catalog-loading'
+  | 'catalog-unavailable'
   | 'loading'
   | 'missing-api-key'
   | 'missing-model-config'
@@ -191,38 +199,52 @@ export function getByokProviderLabel(provider: ByokProvider): string {
   return byokProviderLabels[provider];
 }
 
-export function getByokProviderOptions(): Array<{
+export function getAccessCatalogProvider(
+  catalog: AccessCatalogResponse | null,
+  provider: ByokProvider,
+): AccessCatalogProviderEntry | null {
+  return catalog?.providers.find((entry) => entry.id === provider) ?? null;
+}
+
+export function getAccessCatalogProviderOptions(
+  catalog: AccessCatalogResponse | null,
+): Array<{
   label: string;
   value: ByokProvider;
 }> {
-  return byokProviders.map((provider) => ({
-    label: getByokProviderLabel(provider),
-    value: provider,
-  }));
+  return (
+    catalog?.providers.map((provider) => ({
+      label: provider.label,
+      value: provider.id,
+    })) ??
+    byokProviders.map((provider) => ({
+      label: getByokProviderLabel(provider),
+      value: provider,
+    }))
+  );
 }
 
-export function getByokModelOptions(provider: ByokProvider): ByokModelOption[] {
-  return [
-    ...byokProviderModelOptions[provider],
-    {
-      label: 'Custom model...',
-      value: CUSTOM_MODEL_OPTION_VALUE,
-    },
-  ];
+export function getAccessCatalogModelOptions(
+  catalog: AccessCatalogResponse | null,
+  provider: ByokProvider,
+): AccessCatalogModel[] {
+  return getAccessCatalogProvider(catalog, provider)?.models ?? [];
 }
 
-export function getDefaultByokModel(provider: ByokProvider): string {
-  return byokProviderModelOptions[provider][0]?.value ?? '';
+export function getDefaultByokModel(
+  catalog: AccessCatalogResponse | null,
+  provider: ByokProvider,
+): string {
+  const providerEntry = getAccessCatalogProvider(catalog, provider);
+
+  return (
+    providerEntry?.defaultModelId ?? providerEntry?.models[0]?.id ?? ''
+  );
 }
 
 export function resolveByokModel(input: {
-  customModel: string;
   selectedModel: string;
 }): string {
-  if (input.selectedModel === CUSTOM_MODEL_OPTION_VALUE) {
-    return input.customModel.trim();
-  }
-
   return input.selectedModel.trim();
 }
 
@@ -241,12 +263,51 @@ export function getProviderApiKeyHint(provider: ByokProvider): string {
   }
 }
 
-export function createDefaultByokConfig(): StoredByokConfig {
+export function createDefaultByokConfig(
+  catalog: AccessCatalogResponse | null = null,
+): StoredByokConfig {
   return {
     apiKey: null,
-    customModel: '',
     provider: DEFAULT_BYOK_PROVIDER,
-    selectedModel: getDefaultByokModel(DEFAULT_BYOK_PROVIDER),
+    selectedModel: getDefaultByokModel(catalog, DEFAULT_BYOK_PROVIDER),
+  };
+}
+
+export function reconcileByokConfig(
+  catalog: AccessCatalogResponse | null,
+  config: Partial<StoredByokConfig> | null | undefined,
+): StoredByokConfig {
+  const providerIds = catalog?.providers.map((provider) => provider.id) ?? [];
+  const fallbackProvider =
+    providerIds[0] ?? DEFAULT_BYOK_PROVIDER;
+  const provider =
+    config?.provider &&
+    typeof config.provider === 'string' &&
+    byokProviders.includes(config.provider as ByokProvider) &&
+    (providerIds.length === 0 || providerIds.includes(config.provider as ByokProvider))
+      ? (config.provider as ByokProvider)
+      : fallbackProvider;
+
+  const defaultModel = getDefaultByokModel(catalog, provider);
+  const requestedModel =
+    typeof config?.selectedModel === 'string'
+      ? config.selectedModel.trim()
+      : '';
+  const selectedModel =
+    requestedModel.length > 0 &&
+    getAccessCatalogModelOptions(catalog, provider).some(
+      (model) => model.id === requestedModel,
+    )
+      ? requestedModel
+      : defaultModel;
+
+  return {
+    apiKey:
+      typeof config?.apiKey === 'string' && config.apiKey.trim().length > 0
+        ? config.apiKey.trim()
+        : null,
+    provider,
+    selectedModel,
   };
 }
 
@@ -255,6 +316,16 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     return {
       kind: 'blocked',
       reason: 'loading',
+    };
+  }
+
+  if (
+    !snapshot.catalog.data &&
+    snapshot.catalog.status === 'loading'
+  ) {
+    return {
+      kind: 'blocked',
+      reason: 'catalog-loading',
     };
   }
 
@@ -271,7 +342,7 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     if (!model) {
       return {
         kind: 'blocked',
-        reason: 'missing-model-config',
+        reason: snapshot.catalog.data ? 'missing-model-config' : 'catalog-unavailable',
       };
     }
 
@@ -287,9 +358,9 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
   }
 
   if (
-    snapshot.offering.status === 'ready' &&
-    snapshot.offering.data &&
-    !snapshot.offering.data.enabled
+    snapshot.catalog.status === 'ready' &&
+    snapshot.catalog.data &&
+    !snapshot.catalog.data.sharedHostedOffering.enabled
   ) {
     return {
       kind: 'blocked',
@@ -342,6 +413,10 @@ export function getAccessGateMessage(reason: AccessGateBlockedReason): string {
   switch (reason) {
     case 'loading':
       return 'Preparing your optimization access...';
+    case 'catalog-loading':
+      return 'Loading the latest provider catalog...';
+    case 'catalog-unavailable':
+      return 'The provider catalog is unavailable right now. Try again when you are back online.';
     case 'missing-api-key':
       return 'Add your API key before optimizing prompts.';
     case 'missing-model-config':
@@ -362,6 +437,13 @@ function toAccessIssue(reason: AccessGateBlockedReason): AccessIssue | null {
     case 'loading':
     case 'subscription-loading':
       return null;
+    case 'catalog-loading':
+      return null;
+    case 'catalog-unavailable':
+      return {
+        code: 'catalog-unavailable',
+        message: getAccessGateMessage(reason),
+      };
     case 'missing-api-key':
       return {
         code: 'missing-api-key',

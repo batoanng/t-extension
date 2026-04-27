@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
-  CUSTOM_MODEL_OPTION_VALUE,
-  getByokModelOptions,
+  getAccessCatalogModelOptions,
+  getAccessCatalogProviderOptions,
   getByokProviderLabel,
-  getByokProviderOptions,
   getProviderApiKeyHint,
+  type AccessCatalogResponse,
   type StoredByokConfig,
 } from '@/shared/model/access';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
 interface ApiKeySectionProps {
   byokConfig: StoredByokConfig;
+  catalog: AccessCatalogResponse | null;
+  catalogStatus: 'idle' | 'loading' | 'ready' | 'error';
   isReady: boolean;
   onSaveByokConfig: (config: StoredByokConfig) => Promise<void>;
   onRemoveByokConfig: () => Promise<void>;
@@ -20,7 +22,6 @@ interface ApiKeySectionProps {
 function createDraft(config: StoredByokConfig): StoredByokConfig {
   return {
     apiKey: config.apiKey,
-    customModel: config.customModel,
     provider: config.provider,
     selectedModel: config.selectedModel,
   };
@@ -28,6 +29,8 @@ function createDraft(config: StoredByokConfig): StoredByokConfig {
 
 export function ApiKeySection({
   byokConfig,
+  catalog,
+  catalogStatus,
   isReady,
   onSaveByokConfig,
   onRemoveByokConfig,
@@ -41,13 +44,17 @@ export function ApiKeySection({
   const [isRemoving, setIsRemoving] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftConfig(createDraft(byokConfig));
+    }
+  }, [byokConfig, isEditing]);
+
   const hasApiKey = Boolean(byokConfig.apiKey);
   const showEditor = !hasApiKey || isEditing;
-  const isCustomModel =
-    draftConfig.selectedModel === CUSTOM_MODEL_OPTION_VALUE;
-  const resolvedModel = isCustomModel
-    ? draftConfig.customModel.trim()
-    : draftConfig.selectedModel.trim();
+  const providerOptions = getAccessCatalogProviderOptions(catalog);
+  const modelOptions = getAccessCatalogModelOptions(catalog, draftConfig.provider);
+  const resolvedModel = draftConfig.selectedModel.trim();
 
   function resetDraft(config: StoredByokConfig) {
     setDraftConfig(createDraft(config));
@@ -73,7 +80,6 @@ export function ApiKeySection({
     try {
       await onSaveByokConfig({
         apiKey: trimmedApiKey,
-        customModel: draftConfig.customModel,
         provider: draftConfig.provider,
         selectedModel: draftConfig.selectedModel,
       });
@@ -111,6 +117,10 @@ export function ApiKeySection({
         <InlineMessage>Loading saved access settings...</InlineMessage>
       ) : null}
 
+      {catalogStatus === 'loading' && !catalog ? (
+        <InlineMessage>Loading the latest provider catalog...</InlineMessage>
+      ) : null}
+
       {showEditor ? (
         <>
           <div className="selector-grid">
@@ -124,19 +134,18 @@ export function ApiKeySection({
                 id="byok-provider"
                 onChange={(event) => {
                   const provider = event.target.value as StoredByokConfig['provider'];
-                  const nextOptions = getByokModelOptions(provider);
+                  const nextModels = getAccessCatalogModelOptions(catalog, provider);
 
                   setDraftConfig((current) => ({
                     ...current,
                     provider,
-                    selectedModel: nextOptions[0]?.value ?? '',
-                    customModel: '',
+                    selectedModel: nextModels[0]?.id ?? '',
                   }));
                   setErrorMessage(null);
                 }}
                 value={draftConfig.provider}
               >
-                {getByokProviderOptions().map((option) => (
+                {providerOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -150,7 +159,9 @@ export function ApiKeySection({
               </label>
               <select
                 className="select-input"
-                disabled={!isReady || isSaving || isRemoving}
+                disabled={
+                  !isReady || isSaving || isRemoving || modelOptions.length === 0
+                }
                 id="byok-model"
                 onChange={(event) => {
                   setDraftConfig((current) => ({
@@ -161,39 +172,14 @@ export function ApiKeySection({
                 }}
                 value={draftConfig.selectedModel}
               >
-                {getByokModelOptions(draftConfig.provider).map((option) => (
-                  <option key={option.value} value={option.value}>
+                {modelOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
               </select>
             </div>
           </div>
-
-          {isCustomModel ? (
-            <div className="field">
-              <label className="field-label" htmlFor="custom-model-id">
-                Custom model ID
-              </label>
-              <input
-                autoComplete="off"
-                className="text-input"
-                disabled={!isReady || isSaving || isRemoving}
-                id="custom-model-id"
-                onChange={(event) => {
-                  setDraftConfig((current) => ({
-                    ...current,
-                    customModel: event.target.value,
-                  }));
-                  setErrorMessage(null);
-                }}
-                placeholder="Enter a provider model ID"
-                spellCheck={false}
-                type="text"
-                value={draftConfig.customModel}
-              />
-            </div>
-          ) : null}
 
           <div className="field">
             <label className="field-label" htmlFor="byok-api-key">
@@ -230,11 +216,7 @@ export function ApiKeySection({
 
             <div className="field">
               <span className="field-label">Model</span>
-              <div className="masked-value">
-                {byokConfig.selectedModel === CUSTOM_MODEL_OPTION_VALUE
-                  ? byokConfig.customModel
-                  : byokConfig.selectedModel}
-              </div>
+              <div className="masked-value">{byokConfig.selectedModel}</div>
             </div>
           </div>
 
@@ -252,7 +234,9 @@ export function ApiKeySection({
       ) : null}
 
       {hasApiKey && showSavedMessage && !isEditing ? (
-        <InlineMessage tone="success">Access settings saved locally.</InlineMessage>
+        <InlineMessage tone="success">
+          Access settings saved locally.
+        </InlineMessage>
       ) : null}
 
       <div className="button-row">

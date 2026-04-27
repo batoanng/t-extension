@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import KeyvRedis from '@keyv/redis';
 import { CacheModule } from '@nestjs/cache-manager';
+import { AccessCatalogModule } from './access';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common';
 import { CacheFeatureModule } from './cache';
@@ -20,6 +21,7 @@ function toRedisUrl(): string {
   imports: [
     CommonModule,
     AuthModule,
+    AccessCatalogModule,
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => {

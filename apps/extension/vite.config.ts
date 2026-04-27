@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const appRoot = fileURLToPath(new URL('.', import.meta.url));
+const backgroundEntry = fileURLToPath(new URL('./src/background.ts', import.meta.url));
 const defaultPort = 3001;
 
 export default defineConfig(({ mode }) => {
@@ -21,6 +22,21 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          popup: fileURLToPath(new URL('./index.html', import.meta.url)),
+          background: backgroundEntry,
+        },
+        output: {
+          entryFileNames: (chunkInfo) => {
+            if (chunkInfo.name === 'background') {
+              return 'background.js';
+            }
+
+            return 'assets/[name]-[hash].js';
+          },
+        },
+      },
     },
     server: {
       port: Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : defaultPort,
