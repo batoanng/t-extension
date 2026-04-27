@@ -1,0 +1,4 @@
+interface:
+  display_name: "Extract Custom Hook"
+  short_description: "Refactor duplicated React logic into a focused custom Hook"
+  default_prompt: "Use $extract-custom-hook to refactor this React code by extracting duplicated or noisy stateful logic into a focused custom Hook, while keeping the API purpose-based and preserving correct Effect behavior."
