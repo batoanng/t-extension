@@ -62,15 +62,9 @@ function parseDurationToSeconds(fieldName: string, value: string): number {
   return amount * unitToSeconds[unit as keyof typeof unitToSeconds];
 }
 
-const optionalStringSchema = z.preprocess(
-  toOptionalTrimmedString,
-  z.string().min(1).optional(),
-);
+const optionalStringSchema = z.preprocess(toOptionalTrimmedString, z.string().min(1).optional());
 const booleanFlagSchema = z.preprocess(toBooleanFlag, z.boolean());
-const corsOriginSchema = z.preprocess(
-  toOriginList,
-  z.array(z.string().min(1)).optional(),
-);
+const corsOriginSchema = z.preprocess(toOriginList, z.array(z.string().min(1)).optional());
 const durationSchema = z
   .string()
   .trim()
@@ -89,32 +83,21 @@ export const configSchema = z.object({
   CORS_ORIGIN: corsOriginSchema,
   REDIS_HOST: z.string().min(1),
   REDIS_PORT: z.coerce.number().int().positive(),
+  REDIS_TLS: booleanFlagSchema.default(false),
   REDIS_USERNAME: optionalStringSchema,
   REDIS_PASSWORD: optionalStringSchema,
   OPENAI_API_KEY: optionalStringSchema,
   OPENAI_MODEL: z.string().trim().min(1).default('gpt-4o-mini'),
   DEEPSEEK_API_KEY: optionalStringSchema,
   DEEPSEEK_MODEL: z.string().trim().min(1).default('deepseek-chat'),
-  DEEPSEEK_BASE_URL: z
-    .string()
-    .trim()
-    .url()
-    .default('https://api.deepseek.com/v1'),
+  DEEPSEEK_BASE_URL: z.string().trim().url().default('https://api.deepseek.com/v1'),
   ACCESS_CATALOG_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
   PROMPT_OPTIMIZER_PRO_PRICE_AUD_MONTHLY: z.coerce.number().positive().default(2),
   STRIPE_SECRET_KEY: optionalStringSchema,
   STRIPE_WEBHOOK_SECRET: optionalStringSchema,
   STRIPE_PRO_MONTHLY_PRICE_ID: optionalStringSchema,
-  STRIPE_SUCCESS_URL: z
-    .string()
-    .trim()
-    .url()
-    .default('https://example.com/success'),
-  STRIPE_CANCEL_URL: z
-    .string()
-    .trim()
-    .url()
-    .default('https://example.com/cancel'),
+  STRIPE_SUCCESS_URL: z.string().trim().url().default('https://example.com/success'),
+  STRIPE_CANCEL_URL: z.string().trim().url().default('https://example.com/cancel'),
   RESEND_API_KEY: optionalStringSchema,
   EMAIL_FROM: z.string().trim().email().default('noreply@example.com'),
 });

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,10 +11,7 @@ import { AuthService } from '../modules/auth/auth.service';
 import { AccessTokenGuard } from '../modules/auth/guards/access-token.guard';
 import { JwtStrategy } from '../modules/auth/jwt.strategy';
 import { MagicLinkMailerService } from '../modules/auth/magic-link-mailer.service';
-import type {
-  AuthResponse,
-  MagicLinkStatusResponse,
-} from '../modules/auth/types/auth.types';
+import type { AuthResponse, MagicLinkStatusResponse } from '../modules/auth/types/auth.types';
 import { PrismaService } from '../modules/common/provider';
 import { Service } from '../modules/tokens';
 import type { Config } from '../types/config';
@@ -39,6 +36,7 @@ const authTestConfig: Config = Object.freeze({
   REDIS_HOST: 'localhost',
   REDIS_PASSWORD: undefined,
   REDIS_PORT: 6379,
+  REDIS_TLS: false,
   REDIS_USERNAME: undefined,
   REFRESH_EXPIRES_IN: '7d',
   REFRESH_EXPIRES_IN_SECONDS: 604800,
@@ -123,8 +121,7 @@ function createPrismaMock() {
       findUnique({ where }: { where: Record<string, unknown> }) {
         for (const record of magicLinks.values()) {
           if (
-            ('authRequestId' in where &&
-              record.authRequestId === where.authRequestId) ||
+            ('authRequestId' in where && record.authRequestId === where.authRequestId) ||
             ('tokenHash' in where && record.tokenHash === where.tokenHash) ||
             ('id' in where && record.id === where.id)
           ) {
@@ -134,13 +131,7 @@ function createPrismaMock() {
 
         return null;
       },
-      update({
-        data,
-        where,
-      }: {
-        data: Record<string, unknown>;
-        where: Record<string, unknown>;
-      }) {
+      update({ data, where }: { data: Record<string, unknown>; where: Record<string, unknown> }) {
         const existing = this.findUnique({ where });
 
         if (!existing) {
@@ -149,17 +140,13 @@ function createPrismaMock() {
 
         const updated: MagicLinkRecord = {
           ...existing,
-          authRequestId:
-            readOptionalString(data.authRequestId) ?? existing.authRequestId,
+          authRequestId: readOptionalString(data.authRequestId) ?? existing.authRequestId,
           email: readOptionalString(data.email) ?? existing.email,
           tokenHash: readOptionalString(data.tokenHash) ?? existing.tokenHash,
           expiresAt: readOptionalDate(data.expiresAt) ?? existing.expiresAt,
-          consumedAt:
-            readOptionalDate(data.consumedAt) ?? existing.consumedAt,
-          verifiedAt:
-            readOptionalDate(data.verifiedAt) ?? existing.verifiedAt,
-          exchangedAt:
-            readOptionalDate(data.exchangedAt) ?? existing.exchangedAt,
+          consumedAt: readOptionalDate(data.consumedAt) ?? existing.consumedAt,
+          verifiedAt: readOptionalDate(data.verifiedAt) ?? existing.verifiedAt,
+          exchangedAt: readOptionalDate(data.exchangedAt) ?? existing.exchangedAt,
           createdAt: existing.createdAt,
           updatedAt: new Date(),
         };
@@ -211,8 +198,8 @@ function createPrismaMock() {
 }
 
 const prismaMock = createPrismaMock();
-const sendMagicLinkMock = vi.fn<(message: MagicLinkEmail) => Promise<void>>(
-  () => Promise.resolve(),
+const sendMagicLinkMock = vi.fn<(message: MagicLinkEmail) => Promise<void>>(() =>
+  Promise.resolve(),
 );
 
 @Module({
@@ -253,9 +240,7 @@ describe('auth routes', () => {
       imports: [TestAuthModule],
     }).compile();
 
-    app = moduleRef.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
+    app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -309,9 +294,7 @@ describe('auth routes', () => {
       method: 'GET',
       url: `/api/v1/auth/magic-link-status?requestId=${loginPayload.authRequestId}`,
     });
-    const statusPayload = JSON.parse(
-      statusResponse.payload,
-    ) as MagicLinkStatusResponse;
+    const statusPayload = JSON.parse(statusResponse.payload) as MagicLinkStatusResponse;
 
     expect(statusResponse.statusCode).toBe(200);
     expect(statusPayload.status).toBe('completed');

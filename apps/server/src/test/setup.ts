@@ -9,3 +9,4 @@ process.env.ACCESS_SECRET ??= 'access-secret';
 process.env.REFRESH_SECRET ??= 'refresh-secret';
 process.env.REDIS_HOST ??= 'localhost';
 process.env.REDIS_PORT ??= '6379';
+process.env.REDIS_TLS ??= '0';

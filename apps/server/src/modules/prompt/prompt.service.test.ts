@@ -24,6 +24,7 @@ const promptTestConfig: Config = Object.freeze({
   REDIS_HOST: 'localhost',
   REDIS_PASSWORD: undefined,
   REDIS_PORT: 6379,
+  REDIS_TLS: false,
   REDIS_USERNAME: undefined,
   REFRESH_EXPIRES_IN: '7d',
   REFRESH_EXPIRES_IN_SECONDS: 604800,
