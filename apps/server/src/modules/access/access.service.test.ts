@@ -1,7 +1,6 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import { ServiceUnavailableException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Config } from '../../types/config';
@@ -58,6 +57,7 @@ function readFixture(name: string) {
 }
 
 function createFixtureFetcher() {
+  // eslint-disable-next-line @typescript-eslint/require-await
   return vi.fn(async (url: string) => {
     if (url.includes('openai')) {
       return readFixture('openai.html');
@@ -136,11 +136,7 @@ describe('AccessCatalogService', () => {
     try {
       const cacheManager = createCacheManager();
       const fetcher = createFixtureFetcher();
-      const service = new AccessCatalogService(
-        cacheManager as never,
-        accessTestConfig,
-        fetcher,
-      );
+      const service = new AccessCatalogService(cacheManager as never, accessTestConfig, fetcher);
 
       const initialCatalog = await service.getCatalog();
 
@@ -162,8 +158,6 @@ describe('AccessCatalogService', () => {
       vi.fn().mockRejectedValue(new Error('network down')),
     );
 
-    await expect(service.getCatalog()).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(service.getCatalog()).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
