@@ -1,12 +1,6 @@
 import { z } from 'zod';
 
-export const promptByokProviderValues = [
-  'openai',
-  'claude',
-  'deepseek',
-  'gemini',
-  'grok',
-] as const;
+export const promptByokProviderValues = ['openai', 'claude', 'deepseek', 'gemini'] as const;
 
 export const promptPurposeValues = [
   'general',
@@ -17,13 +11,25 @@ export const promptPurposeValues = [
   'deployment-planning',
 ] as const;
 
-export const promptOutputStyleValues = [
-  'structured',
-  'concise',
-  'detailed',
-] as const;
+export const promptOutputStyleValues = ['structured', 'concise', 'detailed'] as const;
 
 export const promptCredentialModeValues = ['byok', 'subscription'] as const;
+
+export type PromptByokProvider = (typeof promptByokProviderValues)[number];
+export type PromptCredentialMode = (typeof promptCredentialModeValues)[number];
+export type PromptOutputStyle = (typeof promptOutputStyleValues)[number];
+export type PromptPurpose = (typeof promptPurposeValues)[number];
+
+export interface PromptOptimizeRequest {
+  credentialMode: PromptCredentialMode;
+  includeResponseFraming: boolean;
+  mode: 'developer-agent';
+  model?: string;
+  outputStyle: PromptOutputStyle;
+  prompt: string;
+  provider?: PromptByokProvider;
+  purpose: PromptPurpose;
+}
 
 export const PromptApiKeySchema = z.string().trim().min(1);
 
@@ -59,7 +65,3 @@ export const PromptOptimizeRequestSchema = z
       });
     }
   });
-
-export type PromptOptimizeRequest = z.infer<
-  typeof PromptOptimizeRequestSchema
->;

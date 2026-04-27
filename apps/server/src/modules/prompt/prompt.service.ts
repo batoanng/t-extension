@@ -7,7 +7,13 @@ import type { Config } from '../../types/config';
 import { SubscriptionService } from '../subscription';
 import { Service } from '../tokens';
 import { PromptHttpException, getPromptErrorMessage } from './prompt.errors';
-import type { PromptOptimizeRequest } from './prompt.schemas';
+import type {
+  PromptByokProvider,
+  PromptCredentialMode,
+  PromptOptimizeRequest,
+  PromptOutputStyle,
+  PromptPurpose,
+} from './prompt.schemas';
 
 const minuteWindowMs = 60_000;
 const dayWindowMs = 86_400_000;
@@ -31,17 +37,6 @@ Rules:
 - If response framing is enabled, you may include a brief framing line before the optimized prompt, but keep it minimal.
 `.trim();
 
-const byokProviderBaseUrls: Record<
-  Exclude<PromptOptimizeRequest['provider'], undefined>,
-  string | undefined
-> = {
-  claude: 'https://api.anthropic.com/v1/',
-  deepseek: 'https://api.deepseek.com',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-  grok: 'https://api.x.ai/v1',
-  openai: undefined,
-};
-
 export interface PromptModel {
   invoke(messages: Array<SystemMessage | HumanMessage>): Promise<{ content: unknown }>;
 }
@@ -54,50 +49,57 @@ export type PromptModelFactory = (input: {
 
 export const PROMPT_MODEL_FACTORY = Symbol('PROMPT_MODEL_FACTORY');
 
-function getPurposeGuidance(purpose: PromptOptimizeRequest['purpose']) {
-  switch (purpose) {
-    case 'general':
-      return 'Optimize for a broad-purpose assistant request that improves clarity, context, and expected outcome.';
-    case 'design':
-      return 'Optimize for a design-oriented request with intent, audience, style direction, and deliverables.';
-    case 'technical-planning':
-      return 'Optimize for planning technical implementation with constraints, open questions, and acceptance criteria.';
-    case 'solution-architecture':
-      return 'Optimize for architecture work with system boundaries, tradeoffs, interfaces, and non-functional requirements.';
-    case 'test-strategy':
-      return 'Optimize for creating a practical testing strategy with coverage goals, scenarios, and validation criteria.';
-    case 'deployment-planning':
-      return 'Optimize for deployment planning with rollout steps, dependencies, risks, and verification points.';
-  }
+type PromptMetadataProvider = PromptByokProvider | 'shared-hosted';
+
+interface PromptExecutionContext {
+  apiKey: string;
+  baseUrl?: string;
+  metadataProvider: PromptMetadataProvider;
+  model: string;
+  rateLimitId: string;
 }
 
-function getOutputStyleGuidance(outputStyle: PromptOptimizeRequest['outputStyle']) {
-  switch (outputStyle) {
-    case 'concise':
-      return 'Keep the rewritten prompt compact while retaining the important constraints and deliverables.';
-    case 'detailed':
-      return 'Include fuller structure, explicit context requests, and richer acceptance criteria without padding.';
-    case 'structured':
-      return 'Use a clear structure with labeled sections when the request benefits from them.';
-  }
+interface PromptServiceInput extends PromptOptimizeRequest {
+  apiKey?: string;
+  clientIp: string;
+  userId?: string;
 }
 
-function getResponseFramingGuidance(includeResponseFraming: boolean) {
-  if (includeResponseFraming) {
-    return 'A brief framing line is allowed before the optimized prompt, but keep it short and professional.';
-  }
+const purposeGuidanceByPurpose: Record<PromptPurpose, string> = {
+  general:
+    'Optimize for a broad-purpose assistant request that improves clarity, context, and expected outcome.',
+  design:
+    'Optimize for a design-oriented request with intent, audience, style direction, and deliverables.',
+  'technical-planning':
+    'Optimize for planning technical implementation with constraints, open questions, and acceptance criteria.',
+  'solution-architecture':
+    'Optimize for architecture work with system boundaries, tradeoffs, interfaces, and non-functional requirements.',
+  'test-strategy':
+    'Optimize for creating a practical testing strategy with coverage goals, scenarios, and validation criteria.',
+  'deployment-planning':
+    'Optimize for deployment planning with rollout steps, dependencies, risks, and verification points.',
+};
 
-  return 'Return only the optimized prompt body with no preamble, heading, explanation, or follow-up note.';
-}
+const outputStyleGuidanceByStyle: Record<PromptOutputStyle, string> = {
+  concise:
+    'Keep the rewritten prompt compact while retaining the important constraints and deliverables.',
+  detailed:
+    'Include fuller structure, explicit context requests, and richer acceptance criteria without padding.',
+  structured: 'Use a clear structure with labeled sections when the request benefits from them.',
+};
 
 function buildUserPrompt(request: PromptOptimizeRequest): string {
+  const responseFramingGuidance = request.includeResponseFraming
+    ? 'A brief framing line is allowed before the optimized prompt, but keep it short and professional.'
+    : 'Return only the optimized prompt body with no preamble, heading, explanation, or follow-up note.';
+
   return [
     `Purpose: ${request.purpose}`,
     `Output style: ${request.outputStyle}`,
     `Include response framing: ${request.includeResponseFraming ? 'yes' : 'no'}`,
-    getPurposeGuidance(request.purpose),
-    getOutputStyleGuidance(request.outputStyle),
-    getResponseFramingGuidance(request.includeResponseFraming),
+    purposeGuidanceByPurpose[request.purpose],
+    outputStyleGuidanceByStyle[request.outputStyle],
+    responseFramingGuidance,
     '',
     'Rewrite the following raw prompt for an AI assistant:',
     request.prompt,
@@ -220,7 +222,7 @@ export class PromptService {
 
   private async enforceRateLimit(input: {
     clientIdentifier: string;
-    credentialMode: PromptOptimizeRequest['credentialMode'];
+    credentialMode: PromptCredentialMode;
   }) {
     const code =
       input.credentialMode === 'subscription'
@@ -234,22 +236,10 @@ export class PromptService {
       'minute',
       code,
     );
-    await this.enforceWindowLimit(
-      input.clientIdentifier,
-      promptDayLimit,
-      dayWindowMs,
-      'day',
-      code,
-    );
+    await this.enforceWindowLimit(input.clientIdentifier, promptDayLimit, dayWindowMs, 'day', code);
   }
 
-  async optimizePrompt(
-    input: PromptOptimizeRequest & {
-      clientIp: string;
-      apiKey?: string;
-      userId?: string;
-    },
-  ) {
+  async optimizePrompt(input: PromptServiceInput) {
     const executionContext = await this.resolveExecutionContext(input);
     await this.enforceRateLimit({
       clientIdentifier: executionContext.rateLimitId,
@@ -311,12 +301,8 @@ export class PromptService {
   }
 
   private async resolveExecutionContext(
-    input: PromptOptimizeRequest & {
-      clientIp: string;
-      apiKey?: string;
-      userId?: string;
-    },
-  ) {
+    input: PromptServiceInput,
+  ): Promise<PromptExecutionContext> {
     if (input.credentialMode === 'subscription') {
       if (!input.userId) {
         throw new PromptHttpException(401, 'AUTH_REQUIRED', 'Unauthorized');
@@ -375,7 +361,6 @@ export class PromptService {
 
     return {
       apiKey: input.apiKey,
-      baseUrl: byokProviderBaseUrls[input.provider],
       metadataProvider: input.provider,
       model: input.model,
       rateLimitId: `ip:${input.clientIp || 'unknown'}`,

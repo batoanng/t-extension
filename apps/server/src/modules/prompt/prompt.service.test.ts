@@ -97,6 +97,11 @@ describe('PromptService', () => {
       },
       optimizedPrompt: 'Structured optimized prompt',
     });
+    expect(createPromptModel).toHaveBeenCalledWith({
+      apiKey: 'sk-test',
+      baseUrl: undefined,
+      model: 'gpt-4.1-mini',
+    });
   });
 
   it('enforces the prompt rate limit', async () => {

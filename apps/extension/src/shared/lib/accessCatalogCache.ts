@@ -1,7 +1,8 @@
-import type {
-  AccessCatalogFreshness,
-  AccessCatalogResponse,
-  CachedAccessCatalogMetadata,
+import {
+  type AccessCatalogFreshness,
+  type AccessCatalogResponse,
+  AccessCatalogResponseSchema,
+  type CachedAccessCatalogMetadata,
 } from '@/shared/model/access';
 
 const ACCESS_CATALOG_CACHE_VERSION = 1;
@@ -19,9 +20,7 @@ function getLocalStorage() {
   }
 }
 
-function isRecord(
-  value: unknown,
-): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object';
 }
 
@@ -54,9 +53,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
   }).catch(() => null);
 }
 
-function toCatalogMetadata(
-  value: unknown,
-): CachedAccessCatalogMetadata | null {
+function toCatalogMetadata(value: unknown): CachedAccessCatalogMetadata | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -140,12 +137,17 @@ export async function readCachedCatalogSnapshot(): Promise<AccessCatalogResponse
   }
 
   return await new Promise<AccessCatalogResponse | null>((resolve, reject) => {
-    const transaction = database.transaction(ACCESS_CATALOG_STORE_NAME, 'readonly');
+    const transaction = database.transaction(
+      ACCESS_CATALOG_STORE_NAME,
+      'readonly',
+    );
     const store = transaction.objectStore(ACCESS_CATALOG_STORE_NAME);
     const request = store.get(ACCESS_CATALOG_SNAPSHOT_KEY);
 
     request.onsuccess = () => {
-      resolve((request.result as AccessCatalogResponse | undefined) ?? null);
+      const parsed = AccessCatalogResponseSchema.safeParse(request.result);
+
+      resolve(parsed.success ? parsed.data : null);
     };
     request.onerror = () => {
       reject(request.error);
@@ -169,7 +171,10 @@ export async function writeCachedCatalogSnapshot(
   }
 
   await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(ACCESS_CATALOG_STORE_NAME, 'readwrite');
+    const transaction = database.transaction(
+      ACCESS_CATALOG_STORE_NAME,
+      'readwrite',
+    );
     const store = transaction.objectStore(ACCESS_CATALOG_STORE_NAME);
 
     store.put(catalog, ACCESS_CATALOG_SNAPSHOT_KEY);

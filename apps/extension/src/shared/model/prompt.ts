@@ -211,8 +211,6 @@ export function getPromptMetadataProviderLabel(
       return 'DeepSeek';
     case 'gemini':
       return 'Gemini';
-    case 'grok':
-      return 'Grok';
     case 'shared-hosted':
       return 'Shared Hosted';
   }

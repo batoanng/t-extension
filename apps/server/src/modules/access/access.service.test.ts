@@ -1,6 +1,3 @@
-import { ServiceUnavailableException } from '@nestjs/common';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Config } from '../../types/config';
@@ -52,48 +49,13 @@ function createCacheManager() {
   };
 }
 
-function readFixture(name: string) {
-  return readFileSync(resolve(__dirname, '__fixtures__', name), 'utf8');
-}
-
-function createFixtureFetcher() {
-  // eslint-disable-next-line @typescript-eslint/require-await
-  return vi.fn(async (url: string) => {
-    if (url.includes('openai')) {
-      return readFixture('openai.html');
-    }
-
-    if (url.includes('anthropic')) {
-      return readFixture('claude.html');
-    }
-
-    if (url.includes('deepseek')) {
-      return readFixture('deepseek.html');
-    }
-
-    if (url.includes('google')) {
-      return readFixture('gemini.html');
-    }
-
-    if (url.includes('x.ai')) {
-      return readFixture('grok.html');
-    }
-
-    throw new Error(`Unknown provider URL: ${url}`);
-  });
-}
-
 describe('AccessCatalogService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('builds the catalog from provider fixtures', async () => {
-    const service = new AccessCatalogService(
-      createCacheManager() as never,
-      accessTestConfig,
-      createFixtureFetcher(),
-    );
+  it('builds the catalog from hardcoded provider models', async () => {
+    const service = new AccessCatalogService(createCacheManager() as never, accessTestConfig);
 
     const result = await service.getCatalog();
 
@@ -104,60 +66,121 @@ describe('AccessCatalogService', () => {
       priceAudMonthly: 2,
     });
     expect(result.cacheTtlSeconds).toBe(86_400);
-    expect(result.providers.map((provider) => provider.id)).toEqual([
-      'openai',
-      'claude',
-      'deepseek',
-      'gemini',
-      'grok',
+    expect(result.generatedAt).toEqual(expect.any(String));
+    expect(result.providers).toEqual([
+      {
+        defaultModelId: 'gpt-5.5',
+        id: 'openai',
+        label: 'OpenAI',
+        models: [
+          {
+            id: 'gpt-5.5',
+            label: 'GPT 5.5',
+          },
+          {
+            id: 'gpt-5.4',
+            label: 'GPT 5.4',
+          },
+          {
+            id: 'gpt-5.4-mini',
+            label: 'GPT 5.4 Mini',
+          },
+        ],
+      },
+      {
+        defaultModelId: 'claude-opus-4.7',
+        id: 'claude',
+        label: 'Claude',
+        models: [
+          {
+            id: 'claude-opus-4.7',
+            label: 'Claude Opus 4.7',
+          },
+          {
+            id: 'claude-sonnet-4.6',
+            label: 'Claude Sonnet 4.6',
+          },
+          {
+            id: 'claude-haiku-4.5',
+            label: 'Claude Haiku 4.5',
+          },
+        ],
+      },
+      {
+        defaultModelId: 'deepseek-v4-flash',
+        id: 'deepseek',
+        label: 'DeepSeek',
+        models: [
+          {
+            id: 'deepseek-v4-flash',
+            label: 'DeepSeek V4 Flash',
+          },
+          {
+            id: 'deepseek-v4-pro',
+            label: 'DeepSeek V4 Pro',
+          },
+        ],
+      },
+      {
+        defaultModelId: 'gemini-2.5-pro',
+        id: 'gemini',
+        label: 'Gemini',
+        models: [
+          {
+            id: 'gemini-2.5-pro',
+            label: 'Gemini 2.5 Pro',
+          },
+          {
+            id: 'gemini-3-flash',
+            label: 'Gemini 3 Flash',
+          },
+          {
+            id: 'gemini-3.1-pro',
+            label: 'Gemini 3.1 Pro',
+          },
+        ],
+      },
     ]);
-    expect(result.providers[0]).toMatchObject({
-      defaultModelId: 'gpt-4.1-mini',
-      id: 'openai',
-      label: 'OpenAI',
-    });
-    expect(result.providers[1].models.map((model) => model.id)).toEqual([
-      'claude-sonnet-4-20250514',
-      'claude-haiku-3-20241022',
-    ]);
-    expect(result.providers[3].models.map((model) => model.id)).toEqual([
-      'gemini-2.5-flash',
-      'gemini-2.5-pro',
-    ]);
-    expect(result.providers[4].models.map((model) => model.id)).toEqual([
-      'grok-4.20-reasoning',
-      'grok-3',
-    ]);
+    expect(result.providers.map((provider) => provider.id as string)).not.toContain('grok');
+    expect(result.providers[0]).not.toHaveProperty('sourceUrl');
+    expect(result.providers[0]).not.toHaveProperty('fetchedAt');
   });
 
-  it('returns the last cached catalog when refresh fails after expiry', async () => {
+  it('returns the cached catalog while the cache is fresh', async () => {
     vi.useFakeTimers();
 
     try {
       const cacheManager = createCacheManager();
-      const fetcher = createFixtureFetcher();
-      const service = new AccessCatalogService(cacheManager as never, accessTestConfig, fetcher);
+      const service = new AccessCatalogService(cacheManager as never, accessTestConfig);
 
+      vi.setSystemTime(new Date('2026-04-27T00:00:00.000Z'));
       const initialCatalog = await service.getCatalog();
 
-      vi.advanceTimersByTime(accessTestConfig.ACCESS_CATALOG_CACHE_TTL_SECONDS * 1000 + 1);
-      fetcher.mockRejectedValueOnce(new Error('network down'));
+      vi.setSystemTime(new Date('2026-04-27T00:30:00.000Z'));
+      const cachedCatalog = await service.getCatalog();
 
-      const fallbackCatalog = await service.getCatalog();
-
-      expect(fallbackCatalog).toEqual(initialCatalog);
+      expect(cachedCatalog).toEqual(initialCatalog);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('throws a safe error when no cached catalog exists and refresh fails', async () => {
-    const service = new AccessCatalogService(
-      createCacheManager() as never,
-      accessTestConfig,
-      vi.fn().mockRejectedValue(new Error('network down')),
-    );
+  it('rebuilds the catalog after the cache expires', async () => {
+    vi.useFakeTimers();
 
-    await expect(service.getCatalog()).rejects.toBeInstanceOf(ServiceUnavailableException);
+    try {
+      const service = new AccessCatalogService(createCacheManager() as never, accessTestConfig);
+
+      vi.setSystemTime(new Date('2026-04-27T00:00:00.000Z'));
+      const initialCatalog = await service.getCatalog();
+
+      vi.setSystemTime(new Date('2026-04-28T00:00:01.000Z'));
+      const refreshedCatalog = await service.getCatalog();
+
+      expect(refreshedCatalog.generatedAt).not.toBe(initialCatalog.generatedAt);
+      expect(refreshedCatalog.providers).toEqual(initialCatalog.providers);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

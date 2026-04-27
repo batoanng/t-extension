@@ -1,21 +1,13 @@
-import {
-  Body,
-  Controller,
-  Headers,
-  HttpCode,
-  Inject,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, Inject, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 
 import { AuthService } from '../auth/auth.service';
+import { PromptHttpException, getPromptErrorMessage, toPromptHttpException } from './prompt.errors';
 import {
-  PromptHttpException,
-  getPromptErrorMessage,
-  toPromptHttpException,
-} from './prompt.errors';
-import { PromptOptimizeRequestSchema, PromptApiKeySchema } from './prompt.schemas';
+  PromptApiKeySchema,
+  type PromptOptimizeRequest,
+  PromptOptimizeRequestSchema,
+} from './prompt.schemas';
 import { PromptService } from './prompt.service';
 
 @Controller('prompt')
@@ -36,14 +28,13 @@ export class PromptController {
     @Req() request: FastifyRequest,
   ) {
     try {
-      const parsedRequest = PromptOptimizeRequestSchema.parse(body);
+      const parsedRequest: PromptOptimizeRequest = PromptOptimizeRequestSchema.parse(body);
       let userId: string | undefined;
       let parsedApiKey: string | undefined;
 
       if (parsedRequest.credentialMode === 'subscription') {
         try {
-          const user =
-            await this.authService.authenticateAccessToken(authorizationHeader);
+          const user = await this.authService.authenticateAccessToken(authorizationHeader);
           userId = user.sub;
         } catch {
           throw new PromptHttpException(

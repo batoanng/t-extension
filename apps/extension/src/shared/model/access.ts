@@ -16,7 +16,6 @@ export const byokProviders = [
   'claude',
   'deepseek',
   'gemini',
-  'grok',
 ] as const;
 
 export type ByokProvider = (typeof byokProviders)[number];
@@ -27,7 +26,6 @@ const byokProviderLabels: Record<ByokProvider, string> = {
   claude: 'Claude',
   deepseek: 'DeepSeek',
   gemini: 'Gemini',
-  grok: 'Grok',
   openai: 'OpenAI',
 };
 
@@ -39,9 +37,7 @@ export const AccessCatalogModelSchema = z.object({
 export const AccessCatalogProviderSchema = z.object({
   id: z.enum(byokProviders),
   label: z.string().trim().min(1),
-  sourceUrl: z.string().trim().url(),
   defaultModelId: z.string().trim().min(1),
-  fetchedAt: z.string().datetime(),
   models: z.array(AccessCatalogModelSchema).min(1),
 });
 
@@ -237,14 +233,10 @@ export function getDefaultByokModel(
 ): string {
   const providerEntry = getAccessCatalogProvider(catalog, provider);
 
-  return (
-    providerEntry?.defaultModelId ?? providerEntry?.models[0]?.id ?? ''
-  );
+  return providerEntry?.defaultModelId ?? providerEntry?.models[0]?.id ?? '';
 }
 
-export function resolveByokModel(input: {
-  selectedModel: string;
-}): string {
+export function resolveByokModel(input: { selectedModel: string }): string {
   return input.selectedModel.trim();
 }
 
@@ -258,8 +250,6 @@ export function getProviderApiKeyHint(provider: ByokProvider): string {
       return 'Use a DeepSeek API key for the selected DeepSeek model.';
     case 'gemini':
       return 'Use a Gemini API key for the selected Gemini model.';
-    case 'grok':
-      return 'Use an xAI API key for the selected Grok model.';
   }
 }
 
@@ -278,13 +268,13 @@ export function reconcileByokConfig(
   config: Partial<StoredByokConfig> | null | undefined,
 ): StoredByokConfig {
   const providerIds = catalog?.providers.map((provider) => provider.id) ?? [];
-  const fallbackProvider =
-    providerIds[0] ?? DEFAULT_BYOK_PROVIDER;
+  const fallbackProvider = providerIds[0] ?? DEFAULT_BYOK_PROVIDER;
   const provider =
     config?.provider &&
     typeof config.provider === 'string' &&
     byokProviders.includes(config.provider as ByokProvider) &&
-    (providerIds.length === 0 || providerIds.includes(config.provider as ByokProvider))
+    (providerIds.length === 0 ||
+      providerIds.includes(config.provider as ByokProvider))
       ? (config.provider as ByokProvider)
       : fallbackProvider;
 
@@ -319,10 +309,7 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     };
   }
 
-  if (
-    !snapshot.catalog.data &&
-    snapshot.catalog.status === 'loading'
-  ) {
+  if (!snapshot.catalog.data && snapshot.catalog.status === 'loading') {
     return {
       kind: 'blocked',
       reason: 'catalog-loading',
@@ -342,7 +329,9 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     if (!model) {
       return {
         kind: 'blocked',
-        reason: snapshot.catalog.data ? 'missing-model-config' : 'catalog-unavailable',
+        reason: snapshot.catalog.data
+          ? 'missing-model-config'
+          : 'catalog-unavailable',
       };
     }
 
