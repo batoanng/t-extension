@@ -59,14 +59,6 @@ export type AccessCatalogProviderEntry = z.infer<
 >;
 export type AccessCatalogResponse = z.infer<typeof AccessCatalogResponseSchema>;
 
-export type AccessCatalogFreshness = 'fresh' | 'stale' | 'offline-cached';
-
-export interface CachedAccessCatalogMetadata {
-  expiresAt: number;
-  generatedAt: string;
-  version: number;
-}
-
 export type AccessIssueCode =
   | 'catalog-unavailable'
   | 'invalid-api-key'
@@ -131,7 +123,6 @@ export interface AccessSnapshot {
   catalog: {
     data: AccessCatalogResponse | null;
     errorMessage: string | null;
-    freshness: AccessCatalogFreshness | null;
     status: 'idle' | 'loading' | 'ready' | 'error';
   };
   mode: AccessMode;
@@ -283,11 +274,10 @@ export function reconcileByokConfig(
     typeof config?.selectedModel === 'string'
       ? config.selectedModel.trim()
       : '';
+  const providerModels = getAccessCatalogModelOptions(catalog, provider);
   const selectedModel =
     requestedModel.length > 0 &&
-    getAccessCatalogModelOptions(catalog, provider).some(
-      (model) => model.id === requestedModel,
-    )
+    (!catalog || providerModels.some((model) => model.id === requestedModel))
       ? requestedModel
       : defaultModel;
 
@@ -313,6 +303,13 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
     return {
       kind: 'blocked',
       reason: 'catalog-loading',
+    };
+  }
+
+  if (!snapshot.catalog.data && snapshot.catalog.status === 'error') {
+    return {
+      kind: 'blocked',
+      reason: 'catalog-unavailable',
     };
   }
 

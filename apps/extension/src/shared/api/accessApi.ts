@@ -1,5 +1,4 @@
 import type {
-  AccessCatalogFreshness,
   AccessCatalogResponse,
   MagicLinkStatus,
   StoredAuthSession,
@@ -41,7 +40,6 @@ export interface AccessCatalogMessageRequest {
 export interface AccessCatalogMessageResponse {
   catalog: AccessCatalogResponse | null;
   errorMessage: string | null;
-  freshness: AccessCatalogFreshness | null;
   ok: boolean;
 }
 
@@ -84,7 +82,6 @@ export async function requestAccessCatalogFromBackground(
     return {
       catalog,
       errorMessage: null,
-      freshness: 'fresh',
       ok: true,
     };
   }
@@ -103,7 +100,6 @@ export async function requestAccessCatalogFromBackground(
               errorMessage:
                 chrome.runtime.lastError.message ??
                 'Unable to load access catalog.',
-              freshness: null,
               ok: false,
             });
             return;
@@ -113,7 +109,6 @@ export async function requestAccessCatalogFromBackground(
             response ?? {
               catalog: null,
               errorMessage: 'Unable to load access catalog.',
-              freshness: null,
               ok: false,
             },
           );
@@ -123,7 +118,6 @@ export async function requestAccessCatalogFromBackground(
       resolve({
         catalog: null,
         errorMessage: 'Unable to load access catalog.',
-        freshness: null,
         ok: false,
       });
     }

@@ -109,13 +109,6 @@ export function AccessPanel() {
 
           {mode === AccessMode.Byok ? (
             <div className="access-content">
-              {catalog.freshness === 'offline-cached' ? (
-                <InlineMessage>
-                  Using your last synced provider catalog. New models and price
-                  changes will appear after you reconnect.
-                </InlineMessage>
-              ) : null}
-
               {catalog.errorMessage ? (
                 <InlineMessage tone={catalog.data ? undefined : 'error'}>
                   {catalog.errorMessage}
@@ -142,13 +135,6 @@ export function AccessPanel() {
                   Use the author&apos;s shared hosted key to optimize prompts
                   after subscribing.
                 </p>
-
-                {catalog.freshness === 'offline-cached' ? (
-                  <InlineMessage>
-                    Showing the last synced price and provider catalog while
-                    offline.
-                  </InlineMessage>
-                ) : null}
 
                 {panelIssueMessage ? (
                   <InlineMessage tone="error">

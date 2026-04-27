@@ -92,7 +92,7 @@ The extension should treat the backend catalog as the commercial source of truth
 - model choices shown for each provider
 - default model presented for each provider
 - shared hosted offering label and price
-- freshness window for discovery data
+- server-side cache metadata for discovery data
 
 ### Why this matters
 
@@ -117,49 +117,34 @@ This keeps the default choice current while avoiding surprise quality or availab
 
 ---
 
-## 5. Discovery Freshness And Offline Behavior
+## 5. Live Discovery And Server Cache Behavior
 
 ### Discovery data
 
-The extension relies on a cached copy of the backend access catalog for access discovery, including:
+The extension requests the backend access catalog for access discovery, including:
 
 - supported providers
 - available models
 - default models
 - hosted monthly price
-- the freshness window for that catalog
+- server-side cache metadata for that catalog
 
-### Default freshness policy
+### Cache ownership
 
-The default freshness window is one day unless the backend publishes a different value.
+Catalog caching belongs on the backend.
 
-This means the product can refresh market-facing discovery data regularly without making the extension feel unstable or network-dependent on every open.
+The extension should not persist catalog snapshots in `localStorage`, the browser Cache API, or IndexedDB. This keeps popup behavior easier to debug and keeps Redis or the configured server cache as the catalog cache layer.
 
 ### Offline business behavior
 
-If the user has already synced the catalog successfully at least once, the extension should remain usable for discovery while offline.
+If the extension cannot reach the backend, it should show a clear catalog loading error instead of falling back to a persisted frontend catalog snapshot.
 
 Expected user experience:
 
-- the last successful provider list remains visible
-- the last successful model list remains visible
-- the last successful hosted price remains visible
-- the product may indicate that the catalog is cached or not freshly verified
-- cached discovery should not block the user from understanding their available access paths
-
-Important limitation:
-
-- first-run offline discovery is not guaranteed
-
-### Freshness states
-
-For product behavior, catalog freshness can be understood as:
-
-- `Fresh`: recently synced and trusted as current
-- `Stale`: older than the current freshness window but still available as the last known state
-- `Offline cached`: network refresh was not available, so the product is presenting the last successful snapshot
-
-These states help the product set expectations without forcing technical jargon on users.
+- saved BYOK settings can still appear because they are user settings
+- provider/model catalog controls remain limited until the backend catalog loads
+- hosted price and offering availability come from the backend, not client persistence
+- users can retry catalog loading when connectivity returns
 
 ---
 
@@ -246,12 +231,12 @@ If hosted access is inactive or unavailable:
 5. The product refreshes access state.
 6. Hosted optimization becomes available without the user needing to manage a personal API key.
 
-### 8.3 Returning user while offline
+### 8.3 Returning user without connectivity
 
 1. User has previously opened the extension while online.
 2. User later opens the extension without connectivity.
-3. The extension shows the last successful access catalog snapshot.
-4. The user can still understand their saved provider/model choices and hosted offer state from cached discovery data.
+3. The extension shows saved local access settings where available.
+4. The extension shows that the provider catalog cannot be loaded until the backend is reachable.
 
 ### 8.4 Returning subscriber with inactive billing
 
@@ -308,17 +293,17 @@ The popup should make the two paths obvious:
 
 ### Discovery messaging principles
 
-When catalog data is cached or not freshly refreshed, the product should communicate that calmly and clearly.
+When catalog data cannot be loaded from the backend, the product should communicate that calmly and clearly.
 
 Good framing:
 
-- access options are based on the last successful sync
-- pricing and model availability may refresh when the extension reconnects
+- the provider catalog is unavailable right now
+- pricing and model availability load from the backend
 
 Bad framing:
 
 - technical cache jargon
-- messages that imply the product is broken when cached discovery is still usable
+- messages that imply the product can verify model or pricing data while offline
 
 ---
 
@@ -339,7 +324,7 @@ Bad framing:
 ### Discovery trust promise
 
 - provider/model discovery should reflect curated backend support, not arbitrary frontend guesses
-- cached offline discovery should present the last known valid state, not invented or placeholder availability
+- frontend code should not persist provider catalog snapshots for offline discovery
 
 ---
 
@@ -350,7 +335,7 @@ Out of scope for the current commercial model:
 - usage-based hosted billing
 - annual plans
 - team billing
-- first-run offline setup guarantees
+- offline catalog discovery guarantees
 - customer-facing promises that every provider's newest experimental release will appear immediately
 
 ---
@@ -364,6 +349,6 @@ The product behavior is correct when:
 - model choices and default recommendations come from the backend access catalog
 - the hosted offer price shown in the extension matches backend-configured pricing
 - the hosted path is framed as Author Shared Key or Shared Hosted access rather than exposing the hidden upstream provider
-- discovery remains usable from the last successful sync when the user is offline
-- stale or offline-cached discovery does not prevent users from understanding or choosing an access path
+- frontend code does not cache the access catalog in localStorage, the browser Cache API, or IndexedDB
+- catalog unavailability is shown as a backend loading problem rather than an offline cached state
 - inactive hosted subscribers are guided toward recovery or BYOK fallback instead of facing a blocked product

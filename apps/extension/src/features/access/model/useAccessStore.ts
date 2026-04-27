@@ -12,13 +12,6 @@ import {
 } from '@/shared/api';
 import { env } from '@/shared/config';
 import {
-  createCatalogMetadata,
-  getCatalogFreshness,
-  readCachedCatalogSnapshot,
-  readCatalogMetadata,
-  writeCatalogMetadata,
-} from '@/shared/lib/accessCatalogCache';
-import {
   getStoredJson,
   getStoredString,
   removeStoredString,
@@ -58,7 +51,6 @@ const initialSnapshot: AccessSnapshot = {
   catalog: {
     data: null,
     errorMessage: null,
-    freshness: null,
     status: 'idle',
   },
   mode: AccessMode.Byok,
@@ -207,37 +199,29 @@ async function persistByokConfig(config: StoredByokConfig) {
 }
 
 async function hydrateSnapshot() {
-  const catalogMetadata = readCatalogMetadata();
   const [
     mode,
     accessPanelCollapsed,
     byokConfigJson,
     legacyApiKey,
     authSession,
-    cachedCatalog,
   ] = await Promise.all([
     getStoredString(ACCESS_MODE_STORAGE_KEY),
     getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
     getStoredString(BYOK_CONFIG_STORAGE_KEY),
     getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
     getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
-    readCachedCatalogSnapshot(),
   ]);
-  const byokConfig = parseStoredByokConfig(
-    byokConfigJson,
-    legacyApiKey,
-    cachedCatalog,
-  );
+  const byokConfig = parseStoredByokConfig(byokConfigJson, legacyApiKey, null);
 
   currentAuthSession = authSession;
 
   setSnapshot({
     byok: byokConfig,
     catalog: {
-      data: cachedCatalog,
+      data: null,
       errorMessage: null,
-      freshness: cachedCatalog ? getCatalogFreshness(catalogMetadata) : null,
-      status: cachedCatalog ? 'ready' : 'loading',
+      status: 'loading',
     },
     mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
     pro: {
@@ -378,13 +362,10 @@ async function refreshAccessCatalog() {
     ).catch(() => ({
       catalog: null,
       errorMessage: 'Unable to load access catalog.',
-      freshness: null,
       ok: false,
     }));
 
     if (response.ok && response.catalog) {
-      const metadata = createCatalogMetadata(response.catalog);
-      writeCatalogMetadata(metadata);
       const nextByokConfig = reconcileByokConfig(
         response.catalog,
         currentSnapshot.byok,
@@ -403,7 +384,6 @@ async function refreshAccessCatalog() {
         catalog: {
           data: response.catalog,
           errorMessage: null,
-          freshness: response.freshness ?? getCatalogFreshness(metadata),
           status: 'ready',
         },
       }));
@@ -416,8 +396,7 @@ async function refreshAccessCatalog() {
         catalog: {
           ...snapshot.catalog,
           errorMessage:
-            response.errorMessage ?? 'Using the last synced provider catalog.',
-          freshness: 'offline-cached',
+            response.errorMessage ?? 'Unable to refresh the provider catalog.',
           status: 'ready',
         },
       }));
@@ -430,7 +409,6 @@ async function refreshAccessCatalog() {
         data: null,
         errorMessage:
           response.errorMessage ?? 'Unable to load the provider catalog.',
-        freshness: null,
         status: 'error',
       },
     }));

@@ -44,18 +44,17 @@ Business outcome:
 - the default recommendation can follow the latest stable public model from each supported provider
 - pricing and access messaging stay aligned with the live commercial offer
 
-## Offline-Cached Discovery
+## Live Backend Discovery
 
-After at least one successful sync, the extension keeps the latest access catalog available locally.
+The extension fetches the access catalog from the backend when the popup opens and when the user refreshes access state.
 
-That means users can still open the product offline and see the last known:
+That means the backend remains the source of truth for:
 
 - supported providers
 - model choices
 - hosted price
-- saved access path context
 
-This is a product reliability feature, not a promise of first-run offline setup. The goal is to keep access discovery understandable even when the network is unavailable.
+Client-side storage is still used for the user's selected access mode, BYOK settings, and auth session state, but not for persisting provider catalog snapshots.
 
 ## Billing And Access Rules
 
@@ -80,7 +79,7 @@ Near-term priorities:
 
 - keep the two-path pricing story obvious in the extension
 - make backend-managed provider and pricing discovery the source of truth
-- preserve a dependable offline-cached experience after initial sync
+- rely on server-side catalog caching instead of frontend offline catalog persistence
 - grow Author Shared Key into the main convenience upgrade
 
 Longer-term opportunities:
