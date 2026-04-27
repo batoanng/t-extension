@@ -4,15 +4,16 @@ import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { env } from '@/shared/config';
 import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import {
+  DEFAULT_PROMPT_PURPOSE,
   DEFAULT_MODE,
   DEFAULT_OUTPUT_STYLE,
-  DEFAULT_TARGET_AGENT,
   MAX_PROMPT_LENGTH,
   type PromptOutputStyle,
-  type PromptTargetAgent,
+  type PromptPurpose,
+  getPromptMetadataProviderLabel,
   getPromptValidationMessage,
   promptOutputStyleOptions,
-  promptTargetAgentOptions,
+  promptPurposeOptions,
 } from '@/shared/model/prompt';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
@@ -20,10 +21,11 @@ import { useOptimizePrompt } from '../model/useOptimizePrompt';
 
 export function PromptOptimizer() {
   const [rawPrompt, setRawPrompt] = useState('');
-  const [targetAgent, setTargetAgent] =
-    useState<PromptTargetAgent>(DEFAULT_TARGET_AGENT);
+  const [purpose, setPurpose] =
+    useState<PromptPurpose>(DEFAULT_PROMPT_PURPOSE);
   const [outputStyle, setOutputStyle] =
     useState<PromptOutputStyle>(DEFAULT_OUTPUT_STYLE);
+  const [includeResponseFraming, setIncludeResponseFraming] = useState(false);
   const accessStore = useAccessStore();
   const {
     copyOptimizedPrompt,
@@ -57,10 +59,13 @@ export function PromptOptimizer() {
       access,
       payload: {
         credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
+        includeResponseFraming,
+        model: access.kind === 'byok' ? access.model : undefined,
         mode: DEFAULT_MODE,
         outputStyle,
         prompt: rawPrompt,
-        targetAgent,
+        provider: access.kind === 'byok' ? access.provider : undefined,
+        purpose,
       },
       serverBaseUrl: env.serverBaseUrl,
     });
@@ -88,7 +93,7 @@ export function PromptOptimizer() {
           </h2>
           <p className="panel-subtitle">
             Tighten the task, preserve intent, and make missing context explicit
-            before handing work to an agent.
+            before handing work to any AI assistant.
           </p>
         </div>
       </div>
@@ -116,19 +121,19 @@ export function PromptOptimizer() {
 
         <div className="selector-grid">
           <div className="field">
-            <label className="field-label" htmlFor="target-agent">
-              Target agent
+            <label className="field-label" htmlFor="prompt-purpose">
+              Purpose
             </label>
             <select
               className="select-input"
               disabled={status === 'loading'}
-              id="target-agent"
+              id="prompt-purpose"
               onChange={(event) => {
-                setTargetAgent(event.target.value as typeof targetAgent);
+                setPurpose(event.target.value as typeof purpose);
               }}
-              value={targetAgent}
+              value={purpose}
             >
-              {promptTargetAgentOptions.map((option) => (
+              {promptPurposeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -157,6 +162,19 @@ export function PromptOptimizer() {
             </select>
           </div>
         </div>
+
+        <label className="checkbox-row" htmlFor="include-response-framing">
+          <input
+            checked={includeResponseFraming}
+            disabled={status === 'loading'}
+            id="include-response-framing"
+            onChange={(event) => {
+              setIncludeResponseFraming(event.target.checked);
+            }}
+            type="checkbox"
+          />
+          <span>Include Response Framing</span>
+        </label>
 
         {accessGate.kind === 'blocked' ? (
           <InlineMessage>
@@ -216,8 +234,16 @@ export function PromptOptimizer() {
         {result ? (
           <div className="meta-row" aria-label="Optimization metadata">
             <span className="meta-pill">{result.metadata.model}</span>
-            <span className="meta-pill">{result.metadata.provider}</span>
-            <span className="meta-pill">{result.metadata.targetAgent}</span>
+            <span className="meta-pill">
+              {getPromptMetadataProviderLabel(result.metadata.provider)}
+            </span>
+            <span className="meta-pill">
+              {
+                promptPurposeOptions.find(
+                  (option) => option.value === result.metadata.purpose,
+                )?.label
+              }
+            </span>
             <span className="meta-pill">{result.metadata.outputStyle}</span>
           </div>
         ) : null}

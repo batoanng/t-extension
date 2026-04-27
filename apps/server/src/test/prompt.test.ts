@@ -72,15 +72,17 @@ describe('prompt routes', () => {
       method: 'POST',
       url: '/api/v1/prompt/optimize',
       payload: {
+        model: 'gpt-4.1-mini',
         prompt: 'Fix this page',
+        provider: 'openai',
       },
     });
 
     expect(response.statusCode).toBe(401);
     expect(JSON.parse(response.payload)).toEqual({
       error: {
-        code: 'MISSING_OPENAI_API_KEY',
-        message: 'OpenAI API key is required.',
+        code: 'MISSING_BYOK_API_KEY',
+        message: 'An API key is required for BYOK optimization.',
       },
     });
   });
@@ -90,10 +92,12 @@ describe('prompt routes', () => {
       method: 'POST',
       url: '/api/v1/prompt/optimize',
       headers: {
-        'x-openai-api-key': 'sk-test',
+        'x-byok-api-key': 'sk-test',
       },
       payload: {
+        model: 'gpt-4.1-mini',
         prompt: 'a'.repeat(8001),
+        provider: 'openai',
       },
     });
 
@@ -115,12 +119,15 @@ describe('prompt routes', () => {
       method: 'POST',
       url: '/api/v1/prompt/optimize',
       headers: {
-        'x-openai-api-key': 'sk-test',
+        'x-byok-api-key': 'sk-test',
       },
       payload: {
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         outputStyle: 'structured',
         prompt: 'Fix my React page',
-        targetAgent: 'codex',
+        provider: 'openai',
+        purpose: 'technical-planning',
       },
     });
 
@@ -128,10 +135,11 @@ describe('prompt routes', () => {
     expect(JSON.parse(response.payload)).toEqual({
       metadata: {
         credentialMode: 'byok',
-        model: 'gpt-4o-mini',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         outputStyle: 'structured',
-        provider: 'openai-byok',
-        targetAgent: 'codex',
+        provider: 'openai',
+        purpose: 'technical-planning',
       },
       optimizedPrompt: 'You are a senior React engineer...',
     });
@@ -146,18 +154,20 @@ describe('prompt routes', () => {
       method: 'POST',
       url: '/api/v1/prompt/optimize',
       headers: {
-        'x-openai-api-key': 'sk-test',
+        'x-byok-api-key': 'sk-test',
       },
       payload: {
+        model: 'gpt-4.1-mini',
         prompt: 'Fix my React page',
+        provider: 'openai',
       },
     });
 
     expect(response.statusCode).toBe(401);
     expect(JSON.parse(response.payload)).toEqual({
       error: {
-        code: 'OPENAI_AUTH_FAILED',
-        message: 'OpenAI rejected the provided API key.',
+        code: 'BYOK_AUTH_FAILED',
+        message: 'The selected provider rejected the provided API key.',
       },
     });
   });
@@ -176,7 +186,7 @@ describe('prompt routes', () => {
     expect(JSON.parse(response.payload)).toEqual({
       error: {
         code: 'AUTH_REQUIRED',
-        message: 'Please sign in to use Developer Assistant Pro.',
+        message: 'Please sign in to use shared hosted access.',
       },
     });
   });

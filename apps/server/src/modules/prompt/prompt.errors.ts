@@ -3,12 +3,12 @@ import { z } from 'zod';
 
 export const promptErrorCodes = [
   'AUTH_REQUIRED',
-  'MISSING_OPENAI_API_KEY',
+  'MISSING_BYOK_API_KEY',
   'INVALID_REQUEST',
   'PROMPT_TOO_LONG',
-  'OPENAI_AUTH_FAILED',
-  'OPENAI_RATE_LIMITED',
-  'OPENAI_REQUEST_FAILED',
+  'BYOK_AUTH_FAILED',
+  'BYOK_RATE_LIMITED',
+  'BYOK_REQUEST_FAILED',
   'SUBSCRIPTION_REQUIRED',
   'SUBSCRIPTION_INACTIVE',
   'HOSTED_OPTIMIZATION_UNAVAILABLE',
@@ -70,25 +70,25 @@ function getErrorStatus(error: unknown): number | null {
 export function getPromptErrorMessage(code: PromptErrorCode): string {
   switch (code) {
     case 'AUTH_REQUIRED':
-      return 'Please sign in to use Developer Assistant Pro.';
-    case 'MISSING_OPENAI_API_KEY':
-      return 'OpenAI API key is required.';
+      return 'Please sign in to use shared hosted access.';
+    case 'MISSING_BYOK_API_KEY':
+      return 'An API key is required for BYOK optimization.';
     case 'INVALID_REQUEST':
       return 'Please enter a valid prompt.';
     case 'PROMPT_TOO_LONG':
       return 'Prompt exceeds the maximum length of 8000 characters.';
-    case 'OPENAI_AUTH_FAILED':
-      return 'OpenAI rejected the provided API key.';
-    case 'OPENAI_RATE_LIMITED':
-      return 'OpenAI rate limit reached. Please wait and try again.';
-    case 'OPENAI_REQUEST_FAILED':
-      return 'OpenAI could not process the request. Please try again.';
+    case 'BYOK_AUTH_FAILED':
+      return 'The selected provider rejected the provided API key.';
+    case 'BYOK_RATE_LIMITED':
+      return 'The selected provider rate limit was reached. Please wait and try again.';
+    case 'BYOK_REQUEST_FAILED':
+      return 'The selected provider could not process the request. Please try again.';
     case 'SUBSCRIPTION_REQUIRED':
-      return 'An active Developer Assistant Pro subscription is required.';
+      return 'An active shared hosted access subscription is required.';
     case 'SUBSCRIPTION_INACTIVE':
-      return 'Your Developer Assistant Pro subscription is inactive.';
+      return 'Your shared hosted access subscription is inactive.';
     case 'HOSTED_OPTIMIZATION_UNAVAILABLE':
-      return 'Hosted optimization is unavailable right now.';
+      return 'Shared hosted optimization is unavailable right now.';
     case 'INTERNAL_SERVER_ERROR':
       return 'Something went wrong. Please try again.';
   }
@@ -132,24 +132,24 @@ export function toPromptHttpException(error: unknown): PromptHttpException {
   if (status === 401) {
     return new PromptHttpException(
       HttpStatus.UNAUTHORIZED,
-      'OPENAI_AUTH_FAILED',
-      getPromptErrorMessage('OPENAI_AUTH_FAILED'),
+      'BYOK_AUTH_FAILED',
+      getPromptErrorMessage('BYOK_AUTH_FAILED'),
     );
   }
 
   if (status === 429) {
     return new PromptHttpException(
       HttpStatus.TOO_MANY_REQUESTS,
-      'OPENAI_RATE_LIMITED',
-      getPromptErrorMessage('OPENAI_RATE_LIMITED'),
+      'BYOK_RATE_LIMITED',
+      getPromptErrorMessage('BYOK_RATE_LIMITED'),
     );
   }
 
   if (typeof status === 'number' && status >= 400) {
     return new PromptHttpException(
       HttpStatus.BAD_GATEWAY,
-      'OPENAI_REQUEST_FAILED',
-      getPromptErrorMessage('OPENAI_REQUEST_FAILED'),
+      'BYOK_REQUEST_FAILED',
+      getPromptErrorMessage('BYOK_REQUEST_FAILED'),
     );
   }
 

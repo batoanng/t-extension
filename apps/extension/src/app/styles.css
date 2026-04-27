@@ -192,6 +192,20 @@ button {
   gap: 8px;
 }
 
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.checkbox-row input {
+  width: 16px;
+  height: 16px;
+}
+
 .field-label {
   color: var(--text-strong);
   font-size: 13px;

@@ -76,19 +76,23 @@ describe('PromptService', () => {
       apiKey: 'sk-test',
       clientIp: '127.0.0.1',
       credentialMode: 'byok',
+      includeResponseFraming: false,
+      model: 'gpt-4.1-mini',
       mode: 'developer-agent',
       outputStyle: 'structured',
       prompt: 'Fix my slow React page',
-      targetAgent: 'codex',
+      provider: 'openai',
+      purpose: 'technical-planning',
     });
 
     expect(result).toEqual({
       metadata: {
         credentialMode: 'byok',
-        model: 'gpt-4o-mini',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         outputStyle: 'structured',
-        provider: 'openai-byok',
-        targetAgent: 'codex',
+        provider: 'openai',
+        purpose: 'technical-planning',
       },
       optimizedPrompt: 'Structured optimized prompt',
     });
@@ -117,10 +121,13 @@ describe('PromptService', () => {
         apiKey: 'sk-test',
         clientIp: '192.168.0.1',
         credentialMode: 'byok',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         mode: 'developer-agent',
         outputStyle: 'structured',
         prompt: `Prompt ${requestCount}`,
-        targetAgent: 'generic',
+        provider: 'openai',
+        purpose: 'general',
       });
     }
 
@@ -129,10 +136,13 @@ describe('PromptService', () => {
         apiKey: 'sk-test',
         clientIp: '192.168.0.1',
         credentialMode: 'byok',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         mode: 'developer-agent',
         outputStyle: 'structured',
         prompt: 'One more prompt',
-        targetAgent: 'generic',
+        provider: 'openai',
+        purpose: 'general',
       }),
     ).rejects.toBeInstanceOf(PromptHttpException);
   });
@@ -160,14 +170,17 @@ describe('PromptService', () => {
         apiKey: 'sk-test',
         clientIp: '127.0.0.1',
         credentialMode: 'byok',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         mode: 'developer-agent',
         outputStyle: 'structured',
         prompt: 'Fix my slow React page',
-        targetAgent: 'codex',
+        provider: 'openai',
+        purpose: 'technical-planning',
       });
       const rejection = expect(optimizePromise).rejects.toEqual(
         expect.objectContaining({
-          code: 'OPENAI_REQUEST_FAILED',
+          code: 'BYOK_REQUEST_FAILED',
         }),
       );
 

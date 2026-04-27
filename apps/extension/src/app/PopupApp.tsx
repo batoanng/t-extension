@@ -45,8 +45,8 @@ export function PopupApp() {
               >
                 <strong>Prompt Optimizer</strong>
                 <p>
-                  Rewrite rough engineering prompts into clearer instructions
-                  for AI coding agents.
+                  Rewrite rough prompts into clearer instructions for the AI
+                  assistant you plan to use.
                 </p>
               </div>
             ) : null}

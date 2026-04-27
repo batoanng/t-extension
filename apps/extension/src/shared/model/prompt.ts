@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-export const promptTargetAgents = [
-  'generic',
-  'codex',
-  'claude-code',
-  'cursor',
-  'windsurf',
-  'chatgpt',
+import { byokProviders } from './access';
+
+export const promptPurposes = [
+  'general',
+  'design',
+  'technical-planning',
+  'solution-architecture',
+  'test-strategy',
+  'deployment-planning',
 ] as const;
 
 export const promptOutputStyles = [
@@ -15,14 +17,19 @@ export const promptOutputStyles = [
   'detailed',
 ] as const;
 
+export const promptMetadataProviders = [
+  ...byokProviders,
+  'shared-hosted',
+] as const;
+
 export const promptErrorCodes = [
   'AUTH_REQUIRED',
-  'MISSING_OPENAI_API_KEY',
+  'MISSING_BYOK_API_KEY',
   'INVALID_REQUEST',
   'PROMPT_TOO_LONG',
-  'OPENAI_AUTH_FAILED',
-  'OPENAI_RATE_LIMITED',
-  'OPENAI_REQUEST_FAILED',
+  'BYOK_AUTH_FAILED',
+  'BYOK_RATE_LIMITED',
+  'BYOK_REQUEST_FAILED',
   'SUBSCRIPTION_REQUIRED',
   'SUBSCRIPTION_INACTIVE',
   'HOSTED_OPTIMIZATION_UNAVAILABLE',
@@ -31,30 +38,57 @@ export const promptErrorCodes = [
 
 export const MIN_PROMPT_LENGTH = 3;
 export const MAX_PROMPT_LENGTH = 8000;
-export const DEFAULT_TARGET_AGENT = 'generic';
+export const DEFAULT_PROMPT_PURPOSE = 'general';
 export const DEFAULT_OUTPUT_STYLE = 'structured';
 export const DEFAULT_MODE = 'developer-agent';
 
-export type PromptTargetAgent = (typeof promptTargetAgents)[number];
+export type PromptPurpose = (typeof promptPurposes)[number];
 export type PromptOutputStyle = (typeof promptOutputStyles)[number];
+export type PromptMetadataProvider = (typeof promptMetadataProviders)[number];
 export type PromptErrorCode = (typeof promptErrorCodes)[number];
 
-export const OptimizePromptRequestSchema = z.object({
-  prompt: z.string().trim().min(MIN_PROMPT_LENGTH).max(MAX_PROMPT_LENGTH),
-  mode: z.literal(DEFAULT_MODE).default(DEFAULT_MODE),
-  credentialMode: z.enum(['byok', 'subscription']).default('byok'),
-  targetAgent: z.enum(promptTargetAgents).default(DEFAULT_TARGET_AGENT),
-  outputStyle: z.enum(promptOutputStyles).default(DEFAULT_OUTPUT_STYLE),
-});
+export const OptimizePromptRequestSchema = z
+  .object({
+    prompt: z.string().trim().min(MIN_PROMPT_LENGTH).max(MAX_PROMPT_LENGTH),
+    mode: z.literal(DEFAULT_MODE).default(DEFAULT_MODE),
+    credentialMode: z.enum(['byok', 'subscription']).default('byok'),
+    provider: z.enum(byokProviders).optional(),
+    model: z.string().trim().min(1).optional(),
+    purpose: z.enum(promptPurposes).default(DEFAULT_PROMPT_PURPOSE),
+    outputStyle: z.enum(promptOutputStyles).default(DEFAULT_OUTPUT_STYLE),
+    includeResponseFraming: z.boolean().default(false),
+  })
+  .superRefine((value, context) => {
+    if (value.credentialMode !== 'byok') {
+      return;
+    }
+
+    if (!value.provider) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Provider is required for BYOK requests.',
+        path: ['provider'],
+      });
+    }
+
+    if (!value.model) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Model is required for BYOK requests.',
+        path: ['model'],
+      });
+    }
+  });
 
 export const OptimizePromptResponseSchema = z.object({
   optimizedPrompt: z.string().trim().min(1),
   metadata: z.object({
     credentialMode: z.enum(['byok', 'subscription']),
     model: z.string().trim().min(1),
-    provider: z.enum(['openai-byok', 'deepseek-subscription']),
-    targetAgent: z.enum(promptTargetAgents),
+    provider: z.enum(promptMetadataProviders),
+    purpose: z.enum(promptPurposes),
     outputStyle: z.enum(promptOutputStyles),
+    includeResponseFraming: z.boolean(),
   }),
 });
 
@@ -110,25 +144,25 @@ export function getPromptApiErrorMessage(
 ): string {
   switch (code) {
     case 'AUTH_REQUIRED':
-      return 'Please sign in to use Developer Assistant Pro.';
-    case 'MISSING_OPENAI_API_KEY':
-      return 'Please add your OpenAI API key first.';
+      return 'Please sign in to use shared hosted access.';
+    case 'MISSING_BYOK_API_KEY':
+      return 'Please add your API key first.';
     case 'INVALID_REQUEST':
       return 'Please enter a valid prompt.';
     case 'PROMPT_TOO_LONG':
       return 'Your prompt is too long. Please shorten it.';
-    case 'OPENAI_AUTH_FAILED':
-      return 'Your OpenAI API key appears to be invalid.';
-    case 'OPENAI_RATE_LIMITED':
-      return 'OpenAI rate limit reached. Please wait and try again.';
-    case 'OPENAI_REQUEST_FAILED':
-      return 'OpenAI could not process the request. Please try again.';
+    case 'BYOK_AUTH_FAILED':
+      return 'The selected provider rejected the provided API key.';
+    case 'BYOK_RATE_LIMITED':
+      return 'The selected provider rate limit was reached. Please wait and try again.';
+    case 'BYOK_REQUEST_FAILED':
+      return 'The selected provider could not process the request. Please try again.';
     case 'SUBSCRIPTION_REQUIRED':
-      return 'Subscribe to Developer Assistant Pro to use hosted optimization.';
+      return 'Subscribe for shared hosted access to use hosted optimization.';
     case 'SUBSCRIPTION_INACTIVE':
-      return 'Your Developer Assistant Pro subscription is inactive.';
+      return 'Your shared hosted access subscription is inactive.';
     case 'HOSTED_OPTIMIZATION_UNAVAILABLE':
-      return 'Hosted optimization is unavailable right now.';
+      return 'Shared hosted optimization is unavailable right now.';
     case 'INTERNAL_SERVER_ERROR':
       return 'Something went wrong. Please try again.';
     case 'INVALID_RESPONSE':
@@ -144,16 +178,16 @@ export function isPromptErrorCode(code: string): code is PromptErrorCode {
   return promptErrorCodes.includes(code as PromptErrorCode);
 }
 
-export const promptTargetAgentOptions: Array<{
+export const promptPurposeOptions: Array<{
   label: string;
-  value: PromptTargetAgent;
+  value: PromptPurpose;
 }> = [
-  { label: 'Generic', value: 'generic' },
-  { label: 'Codex', value: 'codex' },
-  { label: 'Claude Code', value: 'claude-code' },
-  { label: 'Cursor', value: 'cursor' },
-  { label: 'Windsurf', value: 'windsurf' },
-  { label: 'ChatGPT', value: 'chatgpt' },
+  { label: 'General Guidance', value: 'general' },
+  { label: 'Design Brief', value: 'design' },
+  { label: 'Technical Planning', value: 'technical-planning' },
+  { label: 'Solution Architecture', value: 'solution-architecture' },
+  { label: 'Test Strategy', value: 'test-strategy' },
+  { label: 'Deployment Planning', value: 'deployment-planning' },
 ];
 
 export const promptOutputStyleOptions: Array<{
@@ -164,3 +198,22 @@ export const promptOutputStyleOptions: Array<{
   { label: 'Concise', value: 'concise' },
   { label: 'Detailed', value: 'detailed' },
 ];
+
+export function getPromptMetadataProviderLabel(
+  provider: PromptMetadataProvider,
+): string {
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI';
+    case 'claude':
+      return 'Claude';
+    case 'deepseek':
+      return 'DeepSeek';
+    case 'gemini':
+      return 'Gemini';
+    case 'grok':
+      return 'Grok';
+    case 'shared-hosted':
+      return 'Shared Hosted';
+  }
+}

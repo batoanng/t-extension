@@ -34,7 +34,7 @@ export async function optimizePrompt({
   };
 
   if (access.kind === 'byok') {
-    headers['x-openai-api-key'] = access.apiKey.trim();
+    headers['x-byok-api-key'] = access.apiKey.trim();
   } else {
     headers.authorization = `Bearer ${access.accessToken}`;
   }

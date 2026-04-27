@@ -14,24 +14,33 @@ const dayWindowMs = 86_400_000;
 const promptMinuteLimit = 10;
 const promptDayLimit = 100;
 const promptInvocationTimeoutMs = 30_000;
-const defaultModel = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
 const fallbackRateLimitStore = new Map<string, number>();
 
 const PROMPT_OPTIMIZER_SYSTEM_PROMPT = `
-You are a senior software engineering prompt architect.
+You are an expert prompt optimizer.
 
-Your task is to rewrite the user's rough prompt into a clearer, more structured,
-and more effective prompt for an AI coding agent.
+Your task is to rewrite the user's rough prompt into a clearer, more effective,
+and better structured request for an AI assistant.
 
 Rules:
 - Preserve the user's original intent.
 - Do not invent facts, technologies, file names, APIs, or requirements that the user did not provide.
-- If important information is missing, ask the coding agent to request clarification instead of guessing.
-- Keep the result practical for engineering work.
-- Prefer a structured prompt with explicit sections when the request benefits from it.
-- Adapt the tone and structure to the requested target agent and output style.
-- Return only the improved prompt.
+- If important information is missing, make the improved prompt request clarification instead of guessing.
+- Adapt the result to the requested purpose and output style.
+- If response framing is disabled, return only the optimized prompt with no preamble or follow-up commentary.
+- If response framing is enabled, you may include a brief framing line before the optimized prompt, but keep it minimal.
 `.trim();
+
+const byokProviderBaseUrls: Record<
+  Exclude<PromptOptimizeRequest['provider'], undefined>,
+  string | undefined
+> = {
+  claude: 'https://api.anthropic.com/v1/',
+  deepseek: 'https://api.deepseek.com',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  grok: 'https://api.x.ai/v1',
+  openai: undefined,
+};
 
 export interface PromptModel {
   invoke(messages: Array<SystemMessage | HumanMessage>): Promise<{ content: unknown }>;
@@ -45,20 +54,20 @@ export type PromptModelFactory = (input: {
 
 export const PROMPT_MODEL_FACTORY = Symbol('PROMPT_MODEL_FACTORY');
 
-function getTargetAgentGuidance(targetAgent: PromptOptimizeRequest['targetAgent']) {
-  switch (targetAgent) {
-    case 'codex':
-      return 'Optimize for a coding workflow that values concrete implementation steps, repo context requests, and verifiable outcomes.';
-    case 'claude-code':
-      return 'Optimize for an agent that can inspect a codebase, reason carefully, and explain tradeoffs before making changes.';
-    case 'cursor':
-      return 'Optimize for an editor-centric coding assistant that benefits from clear repo context, file references, and concise instructions.';
-    case 'windsurf':
-      return 'Optimize for an IDE coding assistant that works best with explicit tasks, constraints, and acceptance criteria.';
-    case 'chatgpt':
-      return 'Optimize for a general AI assistant that should still behave like a strong coding partner and ask for missing context when needed.';
-    case 'generic':
-      return 'Optimize for a general AI coding agent.';
+function getPurposeGuidance(purpose: PromptOptimizeRequest['purpose']) {
+  switch (purpose) {
+    case 'general':
+      return 'Optimize for a broad-purpose assistant request that improves clarity, context, and expected outcome.';
+    case 'design':
+      return 'Optimize for a design-oriented request with intent, audience, style direction, and deliverables.';
+    case 'technical-planning':
+      return 'Optimize for planning technical implementation with constraints, open questions, and acceptance criteria.';
+    case 'solution-architecture':
+      return 'Optimize for architecture work with system boundaries, tradeoffs, interfaces, and non-functional requirements.';
+    case 'test-strategy':
+      return 'Optimize for creating a practical testing strategy with coverage goals, scenarios, and validation criteria.';
+    case 'deployment-planning':
+      return 'Optimize for deployment planning with rollout steps, dependencies, risks, and verification points.';
   }
 }
 
@@ -69,18 +78,28 @@ function getOutputStyleGuidance(outputStyle: PromptOptimizeRequest['outputStyle'
     case 'detailed':
       return 'Include fuller structure, explicit context requests, and richer acceptance criteria without padding.';
     case 'structured':
-      return 'Use a structured layout with sections such as Role, Task, Context, Requirements, Constraints, Expected Output, and Acceptance Criteria when relevant.';
+      return 'Use a clear structure with labeled sections when the request benefits from them.';
   }
+}
+
+function getResponseFramingGuidance(includeResponseFraming: boolean) {
+  if (includeResponseFraming) {
+    return 'A brief framing line is allowed before the optimized prompt, but keep it short and professional.';
+  }
+
+  return 'Return only the optimized prompt body with no preamble, heading, explanation, or follow-up note.';
 }
 
 function buildUserPrompt(request: PromptOptimizeRequest): string {
   return [
-    `Target agent: ${request.targetAgent}`,
+    `Purpose: ${request.purpose}`,
     `Output style: ${request.outputStyle}`,
-    getTargetAgentGuidance(request.targetAgent),
+    `Include response framing: ${request.includeResponseFraming ? 'yes' : 'no'}`,
+    getPurposeGuidance(request.purpose),
     getOutputStyleGuidance(request.outputStyle),
+    getResponseFramingGuidance(request.includeResponseFraming),
     '',
-    'Rewrite the following raw prompt for a developer-focused coding agent:',
+    'Rewrite the following raw prompt for an AI assistant:',
     request.prompt,
   ].join('\n');
 }
@@ -130,8 +149,8 @@ async function invokePromptModelWithTimeout(
           reject(
             new PromptHttpException(
               HttpStatus.GATEWAY_TIMEOUT,
-              'OPENAI_REQUEST_FAILED',
-              getPromptErrorMessage('OPENAI_REQUEST_FAILED'),
+              'BYOK_REQUEST_FAILED',
+              getPromptErrorMessage('BYOK_REQUEST_FAILED'),
             ),
           );
         }, promptInvocationTimeoutMs);
@@ -184,6 +203,7 @@ export class PromptService {
     limit: number,
     windowMs: number,
     scope: 'minute' | 'day',
+    code: 'BYOK_RATE_LIMITED' | 'HOSTED_OPTIMIZATION_UNAVAILABLE',
   ) {
     const now = Date.now();
     const windowId = Math.floor(now / windowMs);
@@ -191,20 +211,36 @@ export class PromptService {
     const currentCount = await this.getRateLimitCount(cacheKey);
 
     if (currentCount >= limit) {
-      throw new PromptHttpException(
-        429,
-        'OPENAI_RATE_LIMITED',
-        'OpenAI rate limit reached. Please wait and try again.',
-      );
+      throw new PromptHttpException(429, code, getPromptErrorMessage(code));
     }
 
     const ttlMs = windowMs - (now % windowMs);
     await this.setRateLimitCount(cacheKey, currentCount + 1, ttlMs);
   }
 
-  private async enforceRateLimit(clientIdentifier: string) {
-    await this.enforceWindowLimit(clientIdentifier, promptMinuteLimit, minuteWindowMs, 'minute');
-    await this.enforceWindowLimit(clientIdentifier, promptDayLimit, dayWindowMs, 'day');
+  private async enforceRateLimit(input: {
+    clientIdentifier: string;
+    credentialMode: PromptOptimizeRequest['credentialMode'];
+  }) {
+    const code =
+      input.credentialMode === 'subscription'
+        ? 'HOSTED_OPTIMIZATION_UNAVAILABLE'
+        : 'BYOK_RATE_LIMITED';
+
+    await this.enforceWindowLimit(
+      input.clientIdentifier,
+      promptMinuteLimit,
+      minuteWindowMs,
+      'minute',
+      code,
+    );
+    await this.enforceWindowLimit(
+      input.clientIdentifier,
+      promptDayLimit,
+      dayWindowMs,
+      'day',
+      code,
+    );
   }
 
   async optimizePrompt(
@@ -215,7 +251,10 @@ export class PromptService {
     },
   ) {
     const executionContext = await this.resolveExecutionContext(input);
-    await this.enforceRateLimit(executionContext.rateLimitId);
+    await this.enforceRateLimit({
+      clientIdentifier: executionContext.rateLimitId,
+      credentialMode: input.credentialMode,
+    });
 
     const model = this.createPromptModel({
       apiKey: executionContext.apiKey,
@@ -223,17 +262,38 @@ export class PromptService {
       model: executionContext.model,
     });
 
-    const result = await invokePromptModelWithTimeout(model, [
-      new SystemMessage(PROMPT_OPTIMIZER_SYSTEM_PROMPT),
-      new HumanMessage(buildUserPrompt(input)),
-    ]);
+    let result: Awaited<ReturnType<typeof invokePromptModelWithTimeout>>;
+
+    try {
+      result = await invokePromptModelWithTimeout(model, [
+        new SystemMessage(PROMPT_OPTIMIZER_SYSTEM_PROMPT),
+        new HumanMessage(buildUserPrompt(input)),
+      ]);
+    } catch (error) {
+      if (input.credentialMode === 'subscription') {
+        throw new PromptHttpException(
+          503,
+          'HOSTED_OPTIMIZATION_UNAVAILABLE',
+          getPromptErrorMessage('HOSTED_OPTIMIZATION_UNAVAILABLE'),
+        );
+      }
+
+      throw error;
+    }
+
     const optimizedPrompt = extractOptimizedPrompt(result.content);
 
     if (optimizedPrompt.length === 0) {
       throw new PromptHttpException(
-        502,
-        'OPENAI_REQUEST_FAILED',
-        'OpenAI could not process the request. Please try again.',
+        input.credentialMode === 'subscription' ? 503 : 502,
+        input.credentialMode === 'subscription'
+          ? 'HOSTED_OPTIMIZATION_UNAVAILABLE'
+          : 'BYOK_REQUEST_FAILED',
+        getPromptErrorMessage(
+          input.credentialMode === 'subscription'
+            ? 'HOSTED_OPTIMIZATION_UNAVAILABLE'
+            : 'BYOK_REQUEST_FAILED',
+        ),
       );
     }
 
@@ -242,9 +302,10 @@ export class PromptService {
       metadata: {
         credentialMode: input.credentialMode,
         model: executionContext.model,
-        provider: executionContext.provider,
-        targetAgent: input.targetAgent,
+        provider: executionContext.metadataProvider,
+        purpose: input.purpose,
         outputStyle: input.outputStyle,
+        includeResponseFraming: input.includeResponseFraming,
       },
     };
   }
@@ -265,7 +326,7 @@ export class PromptService {
         throw new PromptHttpException(
           503,
           'HOSTED_OPTIMIZATION_UNAVAILABLE',
-          'Hosted optimization is unavailable right now.',
+          getPromptErrorMessage('HOSTED_OPTIMIZATION_UNAVAILABLE'),
         );
       }
 
@@ -275,7 +336,7 @@ export class PromptService {
         throw new PromptHttpException(
           403,
           'SUBSCRIPTION_REQUIRED',
-          'An active Developer Assistant Pro subscription is required.',
+          getPromptErrorMessage('SUBSCRIPTION_REQUIRED'),
         );
       }
 
@@ -283,28 +344,40 @@ export class PromptService {
         throw new PromptHttpException(
           403,
           'SUBSCRIPTION_INACTIVE',
-          'Your Developer Assistant Pro subscription is inactive.',
+          getPromptErrorMessage('SUBSCRIPTION_INACTIVE'),
         );
       }
 
       return {
         apiKey: this.config.DEEPSEEK_API_KEY,
         baseUrl: this.config.DEEPSEEK_BASE_URL,
+        metadataProvider: 'shared-hosted' as const,
         model: this.config.DEEPSEEK_MODEL,
-        provider: 'deepseek-subscription' as const,
         rateLimitId: `user:${input.userId}`,
       };
     }
 
     if (!input.apiKey) {
-      throw new PromptHttpException(401, 'MISSING_OPENAI_API_KEY', 'OpenAI API key is required.');
+      throw new PromptHttpException(
+        401,
+        'MISSING_BYOK_API_KEY',
+        getPromptErrorMessage('MISSING_BYOK_API_KEY'),
+      );
+    }
+
+    if (!input.provider || !input.model) {
+      throw new PromptHttpException(
+        400,
+        'INVALID_REQUEST',
+        getPromptErrorMessage('INVALID_REQUEST'),
+      );
     }
 
     return {
       apiKey: input.apiKey,
-      baseUrl: undefined,
-      model: defaultModel,
-      provider: 'openai-byok' as const,
+      baseUrl: byokProviderBaseUrls[input.provider],
+      metadataProvider: input.provider,
+      model: input.model,
       rateLimitId: `ip:${input.clientIp || 'unknown'}`,
     };
   }

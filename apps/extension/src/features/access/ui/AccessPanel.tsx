@@ -18,8 +18,8 @@ export function AccessPanel() {
     openCustomerPortal,
     refreshOffering,
     refreshSubscriptionStatus,
-    removeApiKey,
-    saveApiKey,
+    removeByokConfig,
+    saveByokConfig,
     sendMagicLink,
     setAccessPanelCollapsed,
     setMode,
@@ -49,8 +49,8 @@ export function AccessPanel() {
           </h2>
           {!isCollapsed ? (
             <p className="panel-subtitle">
-              Keep your own OpenAI API key local, or use Developer Assistant Pro
-              for hosted optimization.
+              Keep your own model access local, or use the author&apos;s shared
+              hosted key with a subscription.
             </p>
           ) : null}
         </div>
@@ -103,7 +103,7 @@ export function AccessPanel() {
               }}
               type="button"
             >
-              Developer Assistant Pro
+              Use Author Shared Key
             </button>
           </div>
 
@@ -114,18 +114,18 @@ export function AccessPanel() {
               ) : null}
 
               <ApiKeySection
-                hasApiKey={Boolean(byok.apiKey)}
+                byokConfig={byok}
                 isReady={ready}
-                onRemoveApiKey={removeApiKey}
-                onSaveApiKey={saveApiKey}
+                onRemoveByokConfig={removeByokConfig}
+                onSaveByokConfig={saveByokConfig}
               />
             </div>
           ) : (
             <div className="pro-card">
               <div className="stack">
                 <p className="hint-text">
-                  Use Developer Assistant Pro to optimize prompts with the
-                  app&apos;s hosted DeepSeek key.
+                  Use the author&apos;s shared hosted key to optimize prompts
+                  after subscribing.
                 </p>
 
                 {panelIssueMessage ? (
@@ -137,9 +137,7 @@ export function AccessPanel() {
                 {offering.status === 'ready' && offering.data ? (
                   <div className="price-band">
                     <strong>A${offering.data.priceAudMonthly} / month</strong>
-                    <span>
-                      Hosted Prompt Optimizer with the app&apos;s DeepSeek key
-                    </span>
+                    <span>Shared hosted optimization access</span>
                   </div>
                 ) : null}
 
@@ -175,7 +173,8 @@ export function AccessPanel() {
                       </InlineMessage>
                     ) : (
                       <InlineMessage>
-                        Sign in to subscribe and use hosted optimization.
+                        Sign in to subscribe and use shared hosted
+                        optimization.
                       </InlineMessage>
                     )}
 
@@ -210,14 +209,14 @@ export function AccessPanel() {
 
                     {pro.subscription.status === 'active' ? (
                       <InlineMessage tone="success">
-                        Subscription active. Prompt optimization will use
-                        Developer Assistant&apos;s DeepSeek key.
+                        Subscription active. Prompt optimization will use the
+                        author&apos;s shared hosted key.
                       </InlineMessage>
                     ) : null}
 
                     {pro.subscription.status === 'inactive' ? (
                       <InlineMessage>
-                        Subscribe to Developer Assistant Pro to enable hosted
+                        Subscribe for shared hosted access to enable hosted
                         optimization.
                       </InlineMessage>
                     ) : null}
@@ -248,7 +247,7 @@ export function AccessPanel() {
                           }}
                           type="button"
                         >
-                          Subscribe
+                          Subscribe for Shared Access
                         </button>
                       )}
 

@@ -9,9 +9,59 @@ export enum MagicLinkStatus {
   Expired = 'expired',
 }
 
+export const byokProviders = [
+  'openai',
+  'claude',
+  'deepseek',
+  'gemini',
+  'grok',
+] as const;
+
+export type ByokProvider = (typeof byokProviders)[number];
+
+export const DEFAULT_BYOK_PROVIDER: ByokProvider = 'openai';
+export const CUSTOM_MODEL_OPTION_VALUE = '__custom_model__';
+
+export interface ByokModelOption {
+  label: string;
+  value: string;
+}
+
+const byokProviderLabels: Record<ByokProvider, string> = {
+  claude: 'Claude',
+  deepseek: 'DeepSeek',
+  gemini: 'Gemini',
+  grok: 'Grok',
+  openai: 'OpenAI',
+};
+
+const byokProviderModelOptions: Record<ByokProvider, ByokModelOption[]> = {
+  claude: [
+    { label: 'Claude Sonnet 4', value: 'claude-sonnet-4-20250514' },
+    { label: 'Claude 3.7 Sonnet', value: 'claude-3-7-sonnet-latest' },
+  ],
+  deepseek: [
+    { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
+    { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
+  ],
+  gemini: [
+    { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
+    { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro' },
+  ],
+  grok: [
+    { label: 'Grok 4.20 Reasoning', value: 'grok-4.20-reasoning' },
+    { label: 'Grok 3', value: 'grok-3' },
+  ],
+  openai: [
+    { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+    { label: 'GPT-4.1', value: 'gpt-4.1' },
+  ],
+};
+
 export type AccessIssueCode =
   | 'invalid-api-key'
   | 'missing-api-key'
+  | 'missing-model'
   | 'offering-unavailable'
   | 'sign-in-required'
   | 'subscription-inactive'
@@ -31,6 +81,13 @@ export interface StoredAuthSession {
     email: string;
     id: string;
   };
+}
+
+export interface StoredByokConfig {
+  apiKey: string | null;
+  customModel: string;
+  provider: ByokProvider;
+  selectedModel: string;
 }
 
 export interface SubscriptionOffering {
@@ -64,12 +121,12 @@ export type OptimizeAccess =
   | {
       apiKey: string;
       kind: 'byok';
+      model: string;
+      provider: ByokProvider;
     };
 
 export interface AccessSnapshot {
-  byok: {
-    apiKey: string | null;
-  };
+  byok: StoredByokConfig;
   mode: AccessMode;
   offering: {
     data: SubscriptionOffering | null;
@@ -114,6 +171,7 @@ export interface AccessSnapshot {
 export type AccessGateBlockedReason =
   | 'loading'
   | 'missing-api-key'
+  | 'missing-model-config'
   | 'sign-in-required'
   | 'subscription-required'
   | 'subscription-loading'
@@ -128,6 +186,69 @@ export type AccessGate =
       kind: 'blocked';
       reason: AccessGateBlockedReason;
     };
+
+export function getByokProviderLabel(provider: ByokProvider): string {
+  return byokProviderLabels[provider];
+}
+
+export function getByokProviderOptions(): Array<{
+  label: string;
+  value: ByokProvider;
+}> {
+  return byokProviders.map((provider) => ({
+    label: getByokProviderLabel(provider),
+    value: provider,
+  }));
+}
+
+export function getByokModelOptions(provider: ByokProvider): ByokModelOption[] {
+  return [
+    ...byokProviderModelOptions[provider],
+    {
+      label: 'Custom model...',
+      value: CUSTOM_MODEL_OPTION_VALUE,
+    },
+  ];
+}
+
+export function getDefaultByokModel(provider: ByokProvider): string {
+  return byokProviderModelOptions[provider][0]?.value ?? '';
+}
+
+export function resolveByokModel(input: {
+  customModel: string;
+  selectedModel: string;
+}): string {
+  if (input.selectedModel === CUSTOM_MODEL_OPTION_VALUE) {
+    return input.customModel.trim();
+  }
+
+  return input.selectedModel.trim();
+}
+
+export function getProviderApiKeyHint(provider: ByokProvider): string {
+  switch (provider) {
+    case 'openai':
+      return 'Use an OpenAI API key for the selected OpenAI model.';
+    case 'claude':
+      return 'Use an Anthropic API key for the selected Claude model.';
+    case 'deepseek':
+      return 'Use a DeepSeek API key for the selected DeepSeek model.';
+    case 'gemini':
+      return 'Use a Gemini API key for the selected Gemini model.';
+    case 'grok':
+      return 'Use an xAI API key for the selected Grok model.';
+  }
+}
+
+export function createDefaultByokConfig(): StoredByokConfig {
+  return {
+    apiKey: null,
+    customModel: '',
+    provider: DEFAULT_BYOK_PROVIDER,
+    selectedModel: getDefaultByokModel(DEFAULT_BYOK_PROVIDER),
+  };
+}
 
 export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
   if (!snapshot.ready) {
@@ -145,11 +266,22 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
       };
     }
 
+    const model = resolveByokModel(snapshot.byok);
+
+    if (!model) {
+      return {
+        kind: 'blocked',
+        reason: 'missing-model-config',
+      };
+    }
+
     return {
       kind: 'allowed',
       access: {
         apiKey: snapshot.byok.apiKey,
         kind: 'byok',
+        model,
+        provider: snapshot.byok.provider,
       },
     };
   }
@@ -211,15 +343,17 @@ export function getAccessGateMessage(reason: AccessGateBlockedReason): string {
     case 'loading':
       return 'Preparing your optimization access...';
     case 'missing-api-key':
-      return 'Add your OpenAI API key before optimizing prompts.';
+      return 'Add your API key before optimizing prompts.';
+    case 'missing-model-config':
+      return 'Choose a model before optimizing prompts.';
     case 'sign-in-required':
-      return 'Sign in to Developer Assistant Pro before using hosted optimization.';
+      return 'Sign in before using shared hosted optimization.';
     case 'subscription-required':
-      return 'Subscribe to Developer Assistant Pro or switch back to your own API key.';
+      return 'Subscribe for shared hosted access or switch back to your own API key.';
     case 'subscription-loading':
-      return 'Checking your Developer Assistant Pro subscription...';
+      return 'Checking your shared hosted access subscription...';
     case 'offering-unavailable':
-      return 'Developer Assistant Pro is unavailable right now. You can still use your own API key.';
+      return 'Shared hosted access is unavailable right now. You can still use your own API key.';
   }
 }
 
@@ -231,6 +365,11 @@ function toAccessIssue(reason: AccessGateBlockedReason): AccessIssue | null {
     case 'missing-api-key':
       return {
         code: 'missing-api-key',
+        message: getAccessGateMessage(reason),
+      };
+    case 'missing-model-config':
+      return {
+        code: 'missing-model',
         message: getAccessGateMessage(reason),
       };
     case 'sign-in-required':

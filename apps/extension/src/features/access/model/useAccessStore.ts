@@ -20,14 +20,20 @@ import {
   subscribeToStoredString,
 } from '@/shared/lib/chromeStorage';
 import {
+  byokProviders,
+  createDefaultByokConfig,
   type AccessIssue,
   AccessMode,
+  type ByokProvider,
+  getDefaultByokModel,
   MagicLinkStatus,
   getAccessGateMessage,
+  resolveByokModel,
 } from '@/shared/model/access';
 import type {
   AccessSnapshot,
   OptimizeAccess,
+  StoredByokConfig,
   StoredAuthSession,
   SubscriptionStatus,
 } from '@/shared/model/access';
@@ -39,14 +45,13 @@ import {
 const ACCESS_MODE_STORAGE_KEY = 'prompt_access_mode';
 const ACCESS_PANEL_COLLAPSED_STORAGE_KEY = 'prompt_access_panel_collapsed';
 const AUTH_SESSION_STORAGE_KEY = 'pro_auth_session';
-const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
+const BYOK_CONFIG_STORAGE_KEY = 'byok_access_config';
+const LEGACY_OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const accessTokenRefreshBufferMs = 30_000;
 const magicLinkPollIntervalMs = 2_000;
 
 const initialSnapshot: AccessSnapshot = {
-  byok: {
-    apiKey: null,
-  },
+  byok: createDefaultByokConfig(),
   mode: AccessMode.Byok,
   offering: {
     data: null,
@@ -74,7 +79,7 @@ let currentAuthSession: StoredAuthSession | null = null;
 let hasHydrated = false;
 let releaseModeSubscription: (() => void) | null = null;
 let releaseAccessPanelCollapsedSubscription: (() => void) | null = null;
-let releaseApiKeySubscription: (() => void) | null = null;
+let releaseByokConfigSubscription: (() => void) | null = null;
 let releaseAuthSessionSubscription: (() => void) | null = null;
 let magicLinkPollTimer: ReturnType<typeof setInterval> | null = null;
 let refreshPromise: Promise<StoredAuthSession | null> | null = null;
@@ -108,8 +113,52 @@ function parseStoredBoolean(value: string | null): boolean | null {
   return null;
 }
 
+function parseStoredByokConfig(
+  storedValue: string | null,
+  legacyApiKey: string | null = null,
+): StoredByokConfig {
+  const fallback = createDefaultByokConfig();
+
+  if (!storedValue) {
+    return {
+      ...fallback,
+      apiKey: legacyApiKey?.trim() || null,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(storedValue) as Partial<StoredByokConfig>;
+    const provider =
+      parsed.provider &&
+      typeof parsed.provider === 'string' &&
+      byokProviders.includes(parsed.provider as ByokProvider)
+        ? (parsed.provider as ByokProvider)
+        : fallback.provider;
+    const selectedModel =
+      typeof parsed.selectedModel === 'string' && parsed.selectedModel.trim()
+        ? parsed.selectedModel.trim()
+        : getDefaultByokModel(provider);
+
+    return {
+      apiKey:
+        typeof parsed.apiKey === 'string'
+          ? parsed.apiKey.trim()
+          : legacyApiKey?.trim() || null,
+      customModel:
+        typeof parsed.customModel === 'string' ? parsed.customModel : '',
+      provider,
+      selectedModel,
+    };
+  } catch {
+    return {
+      ...fallback,
+      apiKey: legacyApiKey?.trim() || null,
+    };
+  }
+}
+
 function getDefaultAccessPanelCollapsed(input: {
-  apiKey: string | null;
+  byokConfig: StoredByokConfig;
   mode: string | null;
   storedValue: string | null;
 }) {
@@ -119,7 +168,7 @@ function getDefaultAccessPanelCollapsed(input: {
     return storedValue;
   }
 
-  return input.mode === AccessMode.Pro || Boolean(input.apiKey);
+  return Boolean(input.byokConfig.apiKey);
 }
 
 function setAccessIssue(accessIssue: AccessIssue | null) {
@@ -170,19 +219,20 @@ async function persistAuthSession(session: StoredAuthSession | null) {
 }
 
 async function hydrateSnapshot() {
-  const [mode, accessPanelCollapsed, apiKey, authSession] = await Promise.all([
-    getStoredString(ACCESS_MODE_STORAGE_KEY),
-    getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
-    getStoredString(OPENAI_API_KEY_STORAGE_KEY),
-    getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
-  ]);
+  const [mode, accessPanelCollapsed, byokConfigJson, legacyApiKey, authSession] =
+    await Promise.all([
+      getStoredString(ACCESS_MODE_STORAGE_KEY),
+      getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
+      getStoredString(BYOK_CONFIG_STORAGE_KEY),
+      getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
+      getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
+    ]);
+  const byokConfig = parseStoredByokConfig(byokConfigJson, legacyApiKey);
 
   currentAuthSession = authSession;
 
   setSnapshot({
-    byok: {
-      apiKey,
-    },
+    byok: byokConfig,
     mode: mode === AccessMode.Pro ? AccessMode.Pro : AccessMode.Byok,
     offering: currentSnapshot.offering,
     pro: {
@@ -207,7 +257,7 @@ async function hydrateSnapshot() {
     ui: {
       accessIssue: null,
       accessPanelCollapsed: getDefaultAccessPanelCollapsed({
-        apiKey,
+        byokConfig,
         mode,
         storedValue: accessPanelCollapsed,
       }),
@@ -251,14 +301,12 @@ function ensureHydrated() {
       }));
     },
   );
-  releaseApiKeySubscription = subscribeToStoredString(
-    OPENAI_API_KEY_STORAGE_KEY,
-    (apiKey) => {
+  releaseByokConfigSubscription = subscribeToStoredString(
+    BYOK_CONFIG_STORAGE_KEY,
+    (byokConfigJson) => {
       updateSnapshot((snapshot) => ({
         ...snapshot,
-        byok: {
-          apiKey,
-        },
+        byok: parseStoredByokConfig(byokConfigJson, snapshot.byok.apiKey),
       }));
     },
   );
@@ -327,7 +375,7 @@ async function refreshOffering() {
       ...snapshot,
       offering: {
         data: null,
-        errorMessage: 'Unable to load Developer Assistant Pro pricing.',
+        errorMessage: 'Unable to load shared hosted access pricing.',
         status: 'error',
       },
     }));
@@ -428,7 +476,7 @@ function toSubscriptionState(subscription: SubscriptionStatus) {
   }
 
   return {
-    message: 'Developer Assistant Pro is not active for this account.',
+    message: 'Shared hosted access is not active for this account.',
     status: 'inactive' as const,
     subscription,
   };
@@ -574,7 +622,6 @@ async function setMode(mode: AccessMode) {
   }));
 
   if (mode === AccessMode.Pro) {
-    await setAccessPanelCollapsed(true);
     void refreshOffering();
 
     if (currentAuthSession) {
@@ -589,15 +636,19 @@ async function setMode(mode: AccessMode) {
   }
 }
 
-async function saveApiKey(apiKey: string) {
-  const trimmedApiKey = apiKey.trim();
+async function saveByokConfig(input: StoredByokConfig) {
+  const nextByokConfig: StoredByokConfig = {
+    apiKey: input.apiKey?.trim() || null,
+    customModel: input.customModel.trim(),
+    provider: input.provider,
+    selectedModel: input.selectedModel,
+  };
 
-  await setStoredString(OPENAI_API_KEY_STORAGE_KEY, trimmedApiKey);
+  await setStoredJson(BYOK_CONFIG_STORAGE_KEY, nextByokConfig);
+  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
   updateSnapshot((snapshot) => ({
     ...snapshot,
-    byok: {
-      apiKey: trimmedApiKey,
-    },
+    byok: nextByokConfig,
     ui: {
       ...snapshot.ui,
       accessIssue: null,
@@ -606,13 +657,17 @@ async function saveApiKey(apiKey: string) {
   await setAccessPanelCollapsed(true);
 }
 
-async function removeApiKey() {
-  await removeStoredString(OPENAI_API_KEY_STORAGE_KEY);
+async function removeByokConfig() {
+  const resetByokConfig = {
+    ...currentSnapshot.byok,
+    apiKey: null,
+  };
+
+  await setStoredJson(BYOK_CONFIG_STORAGE_KEY, resetByokConfig);
+  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
   updateSnapshot((snapshot) => ({
     ...snapshot,
-    byok: {
-      apiKey: null,
-    },
+    byok: resetByokConfig,
     ui: {
       ...snapshot.ui,
       accessIssue: null,
@@ -684,15 +739,15 @@ function reportOptimizeFailure(input: {
   errorCode: PromptApiClientErrorCode;
 }) {
   if (input.accessKind === 'byok') {
-    if (input.errorCode === 'OPENAI_AUTH_FAILED') {
+    if (input.errorCode === 'BYOK_AUTH_FAILED') {
       setAccessIssue({
         code: 'invalid-api-key',
-        message: getPromptApiErrorMessage('OPENAI_AUTH_FAILED'),
+        message: getPromptApiErrorMessage('BYOK_AUTH_FAILED'),
       });
       return;
     }
 
-    if (input.errorCode === 'MISSING_OPENAI_API_KEY') {
+    if (input.errorCode === 'MISSING_BYOK_API_KEY') {
       setAccessIssue({
         code: 'missing-api-key',
         message: getAccessGateMessage('missing-api-key'),
@@ -766,13 +821,17 @@ async function openCustomerPortal() {
 
 async function prepareOptimizeAccess(): Promise<OptimizeAccess | null> {
   if (currentSnapshot.mode === AccessMode.Byok) {
-    if (!currentSnapshot.byok.apiKey) {
+    const resolvedModel = resolveByokModel(currentSnapshot.byok);
+
+    if (!currentSnapshot.byok.apiKey || !resolvedModel) {
       return null;
     }
 
     return {
       apiKey: currentSnapshot.byok.apiKey,
       kind: 'byok',
+      model: resolvedModel,
+      provider: currentSnapshot.byok.provider,
     };
   }
 
@@ -803,8 +862,8 @@ export function __resetAccessStoreForTests() {
   releaseModeSubscription = null;
   releaseAccessPanelCollapsedSubscription?.();
   releaseAccessPanelCollapsedSubscription = null;
-  releaseApiKeySubscription?.();
-  releaseApiKeySubscription = null;
+  releaseByokConfigSubscription?.();
+  releaseByokConfigSubscription = null;
   releaseAuthSessionSubscription?.();
   releaseAuthSessionSubscription = null;
   refreshPromise = null;
@@ -826,8 +885,8 @@ export function useAccessStore() {
     reportOptimizeFailure,
     refreshOffering,
     refreshSubscriptionStatus,
-    removeApiKey,
-    saveApiKey,
+    removeByokConfig,
+    saveByokConfig,
     sendMagicLink,
     setAccessPanelCollapsed,
     setMode,

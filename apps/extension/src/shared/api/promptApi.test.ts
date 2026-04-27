@@ -32,10 +32,11 @@ describe('promptApi', () => {
         optimizedPrompt: 'Refined prompt',
         metadata: {
           credentialMode: 'byok',
-          model: 'gpt-4o-mini',
+          includeResponseFraming: false,
+          model: 'gpt-4.1-mini',
           outputStyle: 'structured',
-          provider: 'openai-byok',
-          targetAgent: 'codex',
+          provider: 'openai',
+          purpose: 'technical-planning',
         },
       }),
     );
@@ -44,12 +45,17 @@ describe('promptApi', () => {
       access: {
         apiKey: 'sk-test',
         kind: 'byok',
+        model: 'gpt-4.1-mini',
+        provider: 'openai',
       },
       payload: {
         credentialMode: 'byok',
+        includeResponseFraming: false,
+        model: 'gpt-4.1-mini',
         outputStyle: 'structured',
         prompt: 'Fix my React app',
-        targetAgent: 'codex',
+        provider: 'openai',
+        purpose: 'technical-planning',
       },
       serverBaseUrl: 'http://localhost:3000',
     });
@@ -68,7 +74,7 @@ describe('promptApi', () => {
       createAxiosResponse(
         {
           error: {
-            code: 'OPENAI_AUTH_FAILED',
+            code: 'BYOK_AUTH_FAILED',
             message: 'Unauthorized',
           },
         },
@@ -81,19 +87,24 @@ describe('promptApi', () => {
         access: {
           apiKey: 'sk-test',
           kind: 'byok',
+          model: 'gpt-4.1-mini',
+          provider: 'openai',
         },
         payload: {
           credentialMode: 'byok',
+          includeResponseFraming: false,
+          model: 'gpt-4.1-mini',
           outputStyle: 'structured',
           prompt: 'Fix my React app',
-          targetAgent: 'generic',
+          provider: 'openai',
+          purpose: 'general',
         },
         serverBaseUrl: 'http://localhost:3000',
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<PromptApiError>>({
-        code: 'OPENAI_AUTH_FAILED',
-        message: 'Your OpenAI API key appears to be invalid.',
+        code: 'BYOK_AUTH_FAILED',
+        message: 'The selected provider rejected the provided API key.',
         status: 401,
       }),
     );
@@ -106,10 +117,11 @@ describe('promptApi', () => {
         optimizedPrompt: 'Hosted result',
         metadata: {
           credentialMode: 'subscription',
+          includeResponseFraming: false,
           model: 'deepseek-chat',
           outputStyle: 'structured',
-          provider: 'deepseek-subscription',
-          targetAgent: 'generic',
+          provider: 'shared-hosted',
+          purpose: 'general',
         },
       }),
     );
@@ -121,9 +133,10 @@ describe('promptApi', () => {
       },
       payload: {
         credentialMode: 'subscription',
+        includeResponseFraming: false,
         outputStyle: 'structured',
         prompt: 'Fix my React app',
-        targetAgent: 'generic',
+        purpose: 'general',
       },
       serverBaseUrl: 'http://localhost:3000',
     });
@@ -152,12 +165,17 @@ describe('promptApi', () => {
         access: {
           apiKey: 'sk-test',
           kind: 'byok',
+          model: 'claude-sonnet-4-20250514',
+          provider: 'claude',
         },
         payload: {
           credentialMode: 'byok',
+          includeResponseFraming: false,
+          model: 'claude-sonnet-4-20250514',
           outputStyle: 'structured',
           prompt: 'Fix my React app',
-          targetAgent: 'generic',
+          provider: 'claude',
+          purpose: 'general',
         },
         serverBaseUrl: 'http://localhost:3000',
         signal: controller.signal,

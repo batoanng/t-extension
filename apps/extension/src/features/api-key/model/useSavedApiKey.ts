@@ -1,11 +1,19 @@
 import { useSyncExternalStore } from 'react';
 import {
-  OPENAI_API_KEY_STORAGE_KEY,
+  getStoredJson,
   getStoredString,
   removeStoredString,
+  setStoredJson,
   setStoredString,
   subscribeToStoredString,
 } from '@/shared/lib/chromeStorage';
+import {
+  createDefaultByokConfig,
+  type StoredByokConfig,
+} from '@/shared/model/access';
+
+const BYOK_CONFIG_STORAGE_KEY = 'byok_access_config';
+const LEGACY_OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 
 interface SavedApiKeySnapshot {
   apiKey: string | null;
@@ -35,14 +43,17 @@ function setSnapshot(snapshot: SavedApiKeySnapshot) {
 }
 
 async function hydrateSnapshot() {
-  const apiKey = await getStoredString(OPENAI_API_KEY_STORAGE_KEY);
+  const [byokConfig, legacyApiKey] = await Promise.all([
+    getStoredJson<StoredByokConfig>(BYOK_CONFIG_STORAGE_KEY),
+    getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
+  ]);
 
   if (currentSnapshot.ready) {
     return;
   }
 
   setSnapshot({
-    apiKey,
+    apiKey: byokConfig?.apiKey ?? legacyApiKey,
     ready: true,
   });
 }
@@ -54,10 +65,20 @@ function ensureHydrated() {
 
   hasHydrated = true;
   releaseStorageSubscription = subscribeToStoredString(
-    OPENAI_API_KEY_STORAGE_KEY,
-    (apiKey) => {
+    BYOK_CONFIG_STORAGE_KEY,
+    (configJson) => {
+      let parsed: Partial<StoredByokConfig> = createDefaultByokConfig();
+
+      if (configJson) {
+        try {
+          parsed = JSON.parse(configJson) as Partial<StoredByokConfig>;
+        } catch {
+          parsed = createDefaultByokConfig();
+        }
+      }
+
       setSnapshot({
-        apiKey,
+        apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : null,
         ready: true,
       });
     },
@@ -96,14 +117,22 @@ export function useSavedApiKey() {
     isReady: snapshot.ready,
     async saveApiKey(apiKey: string) {
       const trimmedApiKey = apiKey.trim();
-      await setStoredString(OPENAI_API_KEY_STORAGE_KEY, trimmedApiKey);
+      await setStoredJson(BYOK_CONFIG_STORAGE_KEY, {
+        ...createDefaultByokConfig(),
+        apiKey: trimmedApiKey,
+      });
+      await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
       setSnapshot({
         apiKey: trimmedApiKey,
         ready: true,
       });
     },
     async removeApiKey() {
-      await removeStoredString(OPENAI_API_KEY_STORAGE_KEY);
+      await setStoredJson(BYOK_CONFIG_STORAGE_KEY, {
+        ...createDefaultByokConfig(),
+        apiKey: null,
+      });
+      await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
       setSnapshot({
         apiKey: null,
         ready: true,

@@ -33,7 +33,7 @@ function createOfferingResponse() {
     currency: 'AUD',
     enabled: true,
     plan: 'pro',
-    priceAudMonthly: 5,
+    priceAudMonthly: 2,
     provider: 'deepseek',
   });
 }
@@ -59,7 +59,7 @@ describe('PopupApp', () => {
 
     expect(
       screen.queryByText(
-        'Rewrite rough engineering prompts into clearer instructions for AI coding agents.',
+        'Rewrite rough prompts into clearer instructions for the AI assistant you plan to use.',
       ),
     ).not.toBeInTheDocument();
 
@@ -70,7 +70,7 @@ describe('PopupApp', () => {
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Rewrite rough engineering prompts into clearer instructions for AI coding agents.',
+        'Rewrite rough prompts into clearer instructions for the AI assistant you plan to use.',
       ),
     ).toBeInTheDocument();
   });
@@ -136,16 +136,16 @@ describe('PopupApp', () => {
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
   });
 
-  it('auto-collapses in Pro mode and shows the blocked-access badge when sign-in is required', async () => {
+  it('keeps the access panel open in shared hosted mode and shows the blocked-access badge when sign-in is required', async () => {
     render(<PopupApp />);
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Developer Assistant Pro' }),
+      await screen.findByRole('button', { name: 'Use Author Shared Key' }),
     );
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Expand optimization access' }),
+        screen.getByRole('button', { name: 'Collapse optimization access' }),
       ).toBeInTheDocument();
     });
 
@@ -163,10 +163,11 @@ describe('PopupApp', () => {
           optimizedPrompt: 'Structured result',
           metadata: {
             credentialMode: 'byok',
-            model: 'gpt-4o-mini',
+            includeResponseFraming: false,
+            model: 'gpt-4.1-mini',
             outputStyle: 'structured',
-            provider: 'openai-byok',
-            targetAgent: 'generic',
+            provider: 'openai',
+            purpose: 'general',
           },
         }),
       );
@@ -206,7 +207,7 @@ describe('PopupApp', () => {
         createAxiosResponse(
           {
             error: {
-              code: 'OPENAI_AUTH_FAILED',
+              code: 'BYOK_AUTH_FAILED',
               message: 'Unauthorized',
             },
           },
@@ -236,7 +237,7 @@ describe('PopupApp', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Your OpenAI API key appears to be invalid.'),
+        screen.getByText('The selected provider rejected the provided API key.'),
       ).toBeInTheDocument();
     });
 

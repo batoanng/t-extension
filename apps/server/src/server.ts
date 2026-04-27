@@ -69,8 +69,8 @@ export async function createApp(): Promise<NestFastifyApplication> {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
-      'X-OpenAI-Api-Key',
-      'x-openai-api-key',
+      'X-Byok-Api-Key',
+      'x-byok-api-key',
       'Stripe-Signature',
       'stripe-signature',
       'X-Request-Id',

@@ -31,7 +31,7 @@ export class PromptController {
   @HttpCode(200)
   async optimizePrompt(
     @Body() body: unknown,
-    @Headers('x-openai-api-key') apiKey: string | undefined,
+    @Headers('x-byok-api-key') apiKey: string | undefined,
     @Headers('authorization') authorizationHeader: string | undefined,
     @Req() request: FastifyRequest,
   ) {
@@ -58,8 +58,8 @@ export class PromptController {
         if (!validatedApiKey.success) {
           throw new PromptHttpException(
             401,
-            'MISSING_OPENAI_API_KEY',
-            getPromptErrorMessage('MISSING_OPENAI_API_KEY'),
+            'MISSING_BYOK_API_KEY',
+            getPromptErrorMessage('MISSING_BYOK_API_KEY'),
           );
         }
 
