@@ -1,15 +1,15 @@
 import { useSyncExternalStore } from 'react';
+
 import {
   getStoredJson,
   getStoredString,
   removeStoredString,
   setStoredJson,
-  setStoredString,
   subscribeToStoredString,
 } from '@/shared/lib/chromeStorage';
 import {
-  createDefaultByokConfig,
   type StoredByokConfig,
+  createDefaultByokConfig,
 } from '@/shared/model/access';
 
 const BYOK_CONFIG_STORAGE_KEY = 'byok_access_config';
