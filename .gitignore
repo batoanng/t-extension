@@ -2,6 +2,10 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=jetbrains,macos,node
 
 # Local .env files
+.env
+.env.local
+.env.development
+.env.production
 *.local
 
 # Vite

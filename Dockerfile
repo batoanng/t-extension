@@ -11,9 +11,9 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store \
     npm i --global --no-update-notifier --no-fund pnpm@${PNPM_VERSION}
 
 RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store \
-    pnpm install
+    npm install
 
-RUN pnpm run build
+RUN npm run build
 
 FROM node:20-alpine
 
