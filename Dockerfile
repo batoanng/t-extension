@@ -1,17 +1,12 @@
 FROM node:20-alpine AS builder
 
-ARG PNPM_VERSION=10.12.3
-
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /usr/app
 COPY --chown=node:node ./ ./
 
-RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store \
-    npm i --global --no-update-notifier --no-fund pnpm@${PNPM_VERSION}
-
-RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store \
-    npm install
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
+    npm ci
 
 RUN npm run build
 
