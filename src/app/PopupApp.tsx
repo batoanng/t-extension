@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { AccessPanel } from '@/features/access/ui/AccessPanel';
 import { PromptOptimizer } from '@/features/prompt-optimizer/ui/PromptOptimizer';
+import { AuthorSupportSection } from '@/features/support/ui/AuthorSupportSection';
 
 export function PopupApp() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -56,6 +57,8 @@ export function PopupApp() {
         <AccessPanel />
 
         <PromptOptimizer />
+
+        <AuthorSupportSection />
       </section>
     </main>
   );

@@ -122,7 +122,12 @@ describe('PopupApp', () => {
     __resetAccessStoreForTests();
     vi.useRealTimers();
     vi.clearAllMocks();
+    vi.mocked(axios.request).mockReset();
     vi.mocked(axios.request).mockResolvedValue(createAccessCatalogResponse());
+    Object.defineProperty(globalThis, 'open', {
+      configurable: true,
+      value: vi.fn(),
+    });
     Object.defineProperty(globalThis.navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -150,6 +155,132 @@ describe('PopupApp', () => {
         'Rewrite rough prompts into clearer instructions for the AI assistant you plan to use.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the author support section with the LinkedIn link', () => {
+    render(<PopupApp />);
+
+    const link = screen.getByRole('link', { name: 'Ba Toan Nguyen' });
+
+    expect(screen.getByText(/Built by/i)).toBeInTheDocument();
+    expect(link).toHaveAttribute(
+      'href',
+      'https://www.linkedin.com/in/batoannguyen/',
+    );
+    expect(screen.getByText('Buy me a coffee')).toBeInTheDocument();
+  });
+
+  it('opens a Stripe coffee checkout for the selected preset amount', async () => {
+    const requestMock = vi.mocked(axios.request);
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(requestMock).toHaveBeenCalledTimes(1);
+    });
+    requestMock.mockResolvedValueOnce(
+      createAxiosResponse({
+        url: 'https://stripe.test/coffee',
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'A$10' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Support with A$10' }),
+    );
+
+    await waitFor(() => {
+      expect(globalThis.open).toHaveBeenCalledWith(
+        'https://stripe.test/coffee',
+        '_blank',
+        'noopener,noreferrer',
+      );
+    });
+
+    expect(requestMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: {
+          amountAudCents: 1000,
+        },
+        method: 'POST',
+        url: 'http://localhost:3000/api/v1/donations/checkout-session',
+      }),
+    );
+    expect(
+      screen.getByText('Coffee checkout opened in a new tab.'),
+    ).toBeInTheDocument();
+  });
+
+  it('validates custom coffee amounts before opening checkout', async () => {
+    const requestMock = vi.mocked(axios.request);
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(requestMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText('Custom amount'), {
+      target: {
+        value: '1',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Support with A$1' }));
+
+    expect(
+      screen.getByText('Choose an amount between A$2 and A$200.'),
+    ).toBeInTheDocument();
+    expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows loading state while opening a custom coffee checkout', async () => {
+    let resolveCheckout: (
+      value: {
+        data: {
+          url: string;
+        };
+        status: number;
+      },
+    ) => void = () => undefined;
+    const checkoutPromise = new Promise<{
+      data: {
+        url: string;
+      };
+      status: number;
+    }>((resolve) => {
+      resolveCheckout = resolve;
+    });
+    const requestMock = vi.mocked(axios.request);
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(requestMock).toHaveBeenCalledTimes(1);
+    });
+    requestMock.mockReturnValueOnce(checkoutPromise);
+
+    fireEvent.change(screen.getByLabelText('Custom amount'), {
+      target: {
+        value: '12.50',
+      },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Support with A$12.50' }),
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Opening checkout...' }),
+    ).toBeDisabled();
+
+    resolveCheckout(createAxiosResponse({ url: 'https://stripe.test/custom' }));
+
+    await waitFor(() => {
+      expect(globalThis.open).toHaveBeenCalledWith(
+        'https://stripe.test/custom',
+        '_blank',
+        'noopener,noreferrer',
+      );
+    });
   });
 
   it('starts with the access panel expanded when no API key exists', async () => {

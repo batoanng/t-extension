@@ -355,8 +355,14 @@ button {
   font-size: 20px;
 }
 
+.section-title {
+  margin: 0;
+  font-size: 15px;
+}
+
 .helper-row,
 .selector-grid,
+.amount-grid,
 .button-row,
 .status-row,
 .meta-row {
@@ -405,6 +411,50 @@ button {
 
 .button-ghost {
   background: transparent;
+  color: var(--accent-strong);
+}
+
+.text-link {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  text-decoration: underline;
+}
+
+.support-panel {
+  box-shadow: var(--shadow-md);
+}
+
+.coffee-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(29, 42, 51, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.54);
+  padding: 14px;
+}
+
+.amount-grid {
+  gap: 8px;
+}
+
+.amount-button {
+  min-height: 38px;
+  border: 1px solid rgba(29, 42, 51, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text-muted);
+  padding: 0 12px;
+  font-weight: 700;
+}
+
+.amount-button.is-active {
+  border-color: rgba(15, 118, 110, 0.36);
+  background: var(--accent-soft);
   color: var(--accent-strong);
 }
 

@@ -12,4 +12,5 @@ export {
   refreshAuthSession,
   requestMagicLink,
 } from './accessApi';
+export { createDonationCheckoutSession } from './donationApi';
 export { optimizePrompt } from './promptApi';
