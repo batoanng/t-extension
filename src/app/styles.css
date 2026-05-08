@@ -371,6 +371,13 @@ button {
   gap: 10px;
 }
 
+.detected-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .selector-grid {
   display: grid;
   gap: 12px;
@@ -407,6 +414,11 @@ button {
 .button-secondary {
   background: rgba(29, 42, 51, 0.08);
   color: var(--text-strong);
+}
+
+.compact-button {
+  min-height: 34px;
+  padding: 0 12px;
 }
 
 .button-ghost {
@@ -500,8 +512,47 @@ button {
   text-align: right;
 }
 
-.optimizer-input {
+.manual-context-input {
   min-height: 188px;
+}
+
+.context-preview {
+  min-height: 118px;
+}
+
+.markdown-preview {
+  min-height: 220px;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.recent-output-list {
+  display: grid;
+  gap: 8px;
+}
+
+.recent-output-button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid rgba(29, 42, 51, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text-strong);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.recent-output-button span,
+.recent-output-button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-output-button small {
+  color: var(--text-soft);
 }
 
 @keyframes rise-in {

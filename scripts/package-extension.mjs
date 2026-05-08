@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const distDir = resolve(rootDir, 'dist');
 const releaseDir = resolve(rootDir, 'release');
-const zipPath = resolve(releaseDir, 'developer-assistant-extension.zip');
+const zipPath = resolve(releaseDir, 'contextpackai-extension.zip');
 
 await mkdir(releaseDir, { recursive: true });
 await rm(zipPath, { force: true });

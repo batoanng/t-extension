@@ -56,7 +56,7 @@ describe('reconcileByokConfig', () => {
 });
 
 describe('getAccessGate', () => {
-  it('blocks optimization when the live catalog is unavailable', () => {
+  it('blocks generation when the live catalog is unavailable', () => {
     const snapshot: AccessSnapshot = {
       byok: {
         apiKey: 'sk-test',

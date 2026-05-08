@@ -30,8 +30,8 @@ export function AccessPanel() {
   const accessIssue = getAccessPanelIssue(accessStore);
   const isCollapsed = ui.accessPanelCollapsed;
   const toggleLabel = isCollapsed
-    ? 'Expand optimization access'
-    : 'Collapse optimization access';
+    ? 'Expand generation access'
+    : 'Collapse generation access';
   const panelIssueMessage =
     mode === AccessMode.Byok
       ? (accessIssue?.message ?? null)
@@ -45,7 +45,7 @@ export function AccessPanel() {
       <div className="panel-header access-panel-header">
         <div>
           <h2 className="panel-title" id="access-title">
-            Optimization Access
+            Generation Access
           </h2>
           {!isCollapsed ? (
             <p className="panel-subtitle">
@@ -58,7 +58,7 @@ export function AccessPanel() {
         <div className="panel-actions">
           {accessIssue ? (
             <span
-              aria-label="Optimization access needs attention"
+              aria-label="Generation access needs attention"
               className="status-icon status-icon-error"
               role="img"
             >
@@ -132,7 +132,7 @@ export function AccessPanel() {
             <div className="pro-card">
               <div className="stack">
                 <p className="hint-text">
-                  Use the author&apos;s shared hosted key to optimize prompts
+                  Use the author&apos;s shared hosted key to generate briefs
                   after subscribing.
                 </p>
 
@@ -148,7 +148,7 @@ export function AccessPanel() {
                       A${catalog.data.sharedHostedOffering.priceAudMonthly} /
                       month
                     </strong>
-                    <span>Shared hosted optimization access</span>
+                    <span>Shared hosted generation access</span>
                   </div>
                 ) : null}
 
@@ -182,8 +182,7 @@ export function AccessPanel() {
                       </InlineMessage>
                     ) : (
                       <InlineMessage>
-                        Sign in to subscribe and use shared hosted
-                        optimization.
+                        Sign in to subscribe and use shared hosted generation.
                       </InlineMessage>
                     )}
 
@@ -218,7 +217,7 @@ export function AccessPanel() {
 
                     {pro.subscription.status === 'active' ? (
                       <InlineMessage tone="success">
-                        Subscription active. Prompt optimization will use the
+                        Subscription active. Brief generation will use the
                         author&apos;s shared hosted key.
                       </InlineMessage>
                     ) : null}
@@ -226,7 +225,7 @@ export function AccessPanel() {
                     {pro.subscription.status === 'inactive' ? (
                       <InlineMessage>
                         Subscribe for shared hosted access to enable hosted
-                        optimization.
+                        generation.
                       </InlineMessage>
                     ) : null}
 

@@ -106,7 +106,7 @@ export interface SubscriptionStatus {
   };
 }
 
-export type OptimizeAccess =
+export type GenerationAccess =
   | {
       accessToken: string;
       kind: 'subscription';
@@ -174,7 +174,7 @@ export type AccessGateBlockedReason =
 
 export type AccessGate =
   | {
-      access: OptimizeAccess;
+      access: GenerationAccess;
       kind: 'allowed';
     }
   | {
@@ -398,17 +398,17 @@ export function getAccessGate(snapshot: AccessSnapshot): AccessGate {
 export function getAccessGateMessage(reason: AccessGateBlockedReason): string {
   switch (reason) {
     case 'loading':
-      return 'Preparing your optimization access...';
+      return 'Preparing your generation access...';
     case 'catalog-loading':
       return 'Loading the latest provider catalog...';
     case 'catalog-unavailable':
       return 'The provider catalog is unavailable right now. Try again when you are back online.';
     case 'missing-api-key':
-      return 'Add your API key before optimizing prompts.';
+      return 'Add your API key before generating briefs.';
     case 'missing-model-config':
-      return 'Choose a model before optimizing prompts.';
+      return 'Choose a model before generating briefs.';
     case 'sign-in-required':
-      return 'Sign in before using shared hosted optimization.';
+      return 'Sign in before using shared hosted generation.';
     case 'subscription-required':
       return 'Subscribe for shared hosted access or switch back to your own API key.';
     case 'subscription-loading':

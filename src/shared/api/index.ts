@@ -13,4 +13,4 @@ export {
   requestMagicLink,
 } from './accessApi';
 export { createDonationCheckoutSession } from './donationApi';
-export { optimizePrompt } from './promptApi';
+export { generateBrief } from './generationApi';

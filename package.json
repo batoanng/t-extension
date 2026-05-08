@@ -1,12 +1,12 @@
 {
-  "name": "developer-assistant-extension",
+  "name": "contextpackai-extension",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/build-extension-assets.mjs",
-    "package:chrome": "npm build && node scripts/package-extension.mjs",
+    "package:chrome": "npm run build && node scripts/package-extension.mjs",
     "preview": "vite preview",
     "lint": "eslint src",
     "test": "vitest run",

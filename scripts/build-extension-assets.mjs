@@ -21,13 +21,13 @@ function getHostPermissions(serverBaseUrl) {
 
 const manifest = {
   manifest_version: 3,
-  name: 'Developer Assistant',
+  name: 'ContextPackAI',
   version: packageJson.version,
   description:
-    'Developer assistant tools for improving prompts and working with AI agents.',
+    'Turn browser work context into role-specific AI-ready briefs.',
   action: {
     default_popup: 'index.html',
-    default_title: 'Developer Assistant',
+    default_title: 'ContextPackAI',
     default_icon: {
       16: 'icons/icon16.png',
       48: 'icons/icon48.png',
@@ -38,7 +38,7 @@ const manifest = {
     service_worker: 'background.js',
     type: 'module',
   },
-  permissions: ['storage'],
+  permissions: ['activeTab', 'scripting', 'storage'],
   host_permissions: getHostPermissions(
     env.VITE_SERVER_BASE_URL?.trim() || 'http://localhost:3000',
   ),

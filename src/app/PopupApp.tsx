@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { AccessPanel } from '@/features/access/ui/AccessPanel';
-import { PromptOptimizer } from '@/features/prompt-optimizer/ui/PromptOptimizer';
+import { ContextPackPopup } from '@/features/context-pack/ui/ContextPackPopup';
 import { AuthorSupportSection } from '@/features/support/ui/AuthorSupportSection';
 
 export function PopupApp() {
@@ -11,7 +11,7 @@ export function PopupApp() {
     <main className="popup-shell">
       <section className="app-frame">
         <header className="app-topbar">
-          <p className="app-title">Developer Assistant</p>
+          <p className="app-title">ContextPackAI</p>
 
           <div
             className="tooltip-anchor"
@@ -25,7 +25,7 @@ export function PopupApp() {
             <button
               aria-describedby={isInfoOpen ? 'app-info-tooltip' : undefined}
               aria-expanded={isInfoOpen}
-              aria-label="About Prompt Optimizer"
+              aria-label="About ContextPackAI"
               className="icon-button info-button"
               onBlur={() => {
                 setIsInfoOpen(false);
@@ -44,10 +44,10 @@ export function PopupApp() {
                 id="app-info-tooltip"
                 role="tooltip"
               >
-                <strong>Prompt Optimizer</strong>
+                <strong>ContextPackAI</strong>
                 <p>
-                  Rewrite rough prompts into clearer instructions for the AI
-                  assistant you plan to use.
+                  Convert Jira, Linear, GitHub issues, and selected text into
+                  role-specific markdown briefs.
                 </p>
               </div>
             ) : null}
@@ -56,7 +56,7 @@ export function PopupApp() {
 
         <AccessPanel />
 
-        <PromptOptimizer />
+        <ContextPackPopup />
 
         <AuthorSupportSection />
       </section>

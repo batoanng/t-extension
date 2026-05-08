@@ -24,7 +24,7 @@ import {
   AccessMode,
   type AccessSnapshot,
   MagicLinkStatus,
-  type OptimizeAccess,
+  type GenerationAccess,
   type StoredAuthSession,
   type StoredByokConfig,
   type SubscriptionStatus,
@@ -34,12 +34,13 @@ import {
   resolveByokModel,
 } from '@/shared/model/access';
 import {
-  type PromptApiClientErrorCode,
-  getPromptApiErrorMessage,
-} from '@/shared/model/prompt';
+  type GenerationApiClientErrorCode,
+  getGenerationApiErrorMessage,
+} from '@/shared/model/contextPack';
 
-const ACCESS_MODE_STORAGE_KEY = 'prompt_access_mode';
-const ACCESS_PANEL_COLLAPSED_STORAGE_KEY = 'prompt_access_panel_collapsed';
+const ACCESS_MODE_STORAGE_KEY = 'contextpackai_access_mode';
+const ACCESS_PANEL_COLLAPSED_STORAGE_KEY =
+  'contextpackai_access_panel_collapsed';
 const AUTH_SESSION_STORAGE_KEY = 'pro_auth_session';
 const BYOK_CONFIG_STORAGE_KEY = 'byok_access_config';
 const LEGACY_OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
@@ -768,15 +769,15 @@ async function signOut() {
   await clearAuthState();
 }
 
-function reportOptimizeFailure(input: {
-  accessKind: OptimizeAccess['kind'];
-  errorCode: PromptApiClientErrorCode;
+function reportGenerationFailure(input: {
+  accessKind: GenerationAccess['kind'];
+  errorCode: GenerationApiClientErrorCode;
 }) {
   if (input.accessKind === 'byok') {
     if (input.errorCode === 'BYOK_AUTH_FAILED') {
       setAccessIssue({
         code: 'invalid-api-key',
-        message: getPromptApiErrorMessage('BYOK_AUTH_FAILED'),
+        message: getGenerationApiErrorMessage('BYOK_AUTH_FAILED'),
       });
       return;
     }
@@ -794,7 +795,7 @@ function reportOptimizeFailure(input: {
   if (input.errorCode === 'AUTH_REQUIRED') {
     setAccessIssue({
       code: 'sign-in-required',
-      message: getPromptApiErrorMessage('AUTH_REQUIRED'),
+      message: getGenerationApiErrorMessage('AUTH_REQUIRED'),
     });
     return;
   }
@@ -802,7 +803,7 @@ function reportOptimizeFailure(input: {
   if (input.errorCode === 'SUBSCRIPTION_REQUIRED') {
     setAccessIssue({
       code: 'subscription-required',
-      message: getPromptApiErrorMessage('SUBSCRIPTION_REQUIRED'),
+      message: getGenerationApiErrorMessage('SUBSCRIPTION_REQUIRED'),
     });
     return;
   }
@@ -810,15 +811,15 @@ function reportOptimizeFailure(input: {
   if (input.errorCode === 'SUBSCRIPTION_INACTIVE') {
     setAccessIssue({
       code: 'subscription-inactive',
-      message: getPromptApiErrorMessage('SUBSCRIPTION_INACTIVE'),
+      message: getGenerationApiErrorMessage('SUBSCRIPTION_INACTIVE'),
     });
     return;
   }
 
-  if (input.errorCode === 'HOSTED_OPTIMIZATION_UNAVAILABLE') {
+  if (input.errorCode === 'HOSTED_GENERATION_UNAVAILABLE') {
     setAccessIssue({
       code: 'offering-unavailable',
-      message: getPromptApiErrorMessage('HOSTED_OPTIMIZATION_UNAVAILABLE'),
+      message: getGenerationApiErrorMessage('HOSTED_GENERATION_UNAVAILABLE'),
     });
   }
 }
@@ -853,7 +854,7 @@ async function openCustomerPortal() {
   globalThis.open?.(result.url, '_blank', 'noopener,noreferrer');
 }
 
-async function prepareOptimizeAccess(): Promise<OptimizeAccess | null> {
+async function prepareGenerationAccess(): Promise<GenerationAccess | null> {
   if (currentSnapshot.mode === AccessMode.Byok) {
     const resolvedModel = resolveByokModel(currentSnapshot.byok);
 
@@ -916,11 +917,11 @@ export function useAccessStore() {
     clearAccessIssue,
     openCheckout,
     openCustomerPortal,
-    prepareOptimizeAccess,
+    prepareGenerationAccess,
     refreshAccessCatalog,
     refreshSubscriptionStatus,
     removeByokConfig,
-    reportOptimizeFailure,
+    reportGenerationFailure,
     saveByokConfig,
     sendMagicLink,
     setAccessPanelCollapsed,

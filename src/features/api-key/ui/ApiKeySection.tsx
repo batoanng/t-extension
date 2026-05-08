@@ -288,7 +288,7 @@ export function ApiKeySection({
 
       <p className="hint-text">
         {getProviderApiKeyHint(draftConfig.provider)} Your key stays local and
-        is sent only with the current optimization request.
+        is sent only with the current generation request.
       </p>
     </div>
   );
