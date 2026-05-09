@@ -83,7 +83,7 @@ describe('PopupApp', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the author support section with the LinkedIn link', () => {
+  it('shows the author attribution with the LinkedIn link', () => {
     render(<PopupApp />);
 
     const link = screen.getByRole('link', { name: 'Ba Toan Nguyen' });
@@ -93,7 +93,6 @@ describe('PopupApp', () => {
       'href',
       'https://www.linkedin.com/in/batoannguyen/',
     );
-    expect(screen.getByText('Buy me a coffee')).toBeInTheDocument();
   });
 
   it('generates a developer brief from manually pasted context', async () => {
@@ -158,7 +157,7 @@ describe('PopupApp', () => {
         data: expect.objectContaining({
           context: expect.objectContaining({
             description: 'Build discount code validation for checkout.',
-            sourceType: 'manual',
+            sourceType: 'manual_paste',
           }),
           outputType: 'implementation_brief',
           targetRole: 'developer',

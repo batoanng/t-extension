@@ -29,10 +29,14 @@ import { extractCurrentTabContext } from '../lib/pageExtraction';
 import { useGenerateBrief } from '../model/useGenerateBrief';
 
 const manualContextTemplate: ExtractedContext = {
+  attachments: [],
+  codeBlocks: [],
   comments: [],
   description: '',
+  linkedItems: [],
   labels: [],
-  sourceType: 'manual',
+  sourceType: 'manual_paste',
+  tables: [],
   title: 'Manual context',
 };
 
@@ -71,7 +75,19 @@ function getContextPreview(context: ExtractedContext): string {
     context.title ? `Title: ${context.title}` : null,
     context.status ? `Status: ${context.status}` : null,
     context.priority ? `Priority: ${context.priority}` : null,
+    context.assignee ? `Assignee: ${context.assignee}` : null,
+    context.reporter ? `Reporter: ${context.reporter}` : null,
     context.labels.length > 0 ? `Labels: ${context.labels.join(', ')}` : null,
+    context.linkedItems.length > 0
+      ? `Linked items: ${context.linkedItems.length}`
+      : null,
+    context.attachments.length > 0
+      ? `Attachments: ${context.attachments.length}`
+      : null,
+    context.codeBlocks.length > 0
+      ? `Code blocks: ${context.codeBlocks.length}`
+      : null,
+    context.tables.length > 0 ? `Tables: ${context.tables.length}` : null,
     context.description ? `\n${context.description}` : null,
     context.comments.length > 0
       ? `\nComments:\n${context.comments.map((comment) => `- ${comment}`).join('\n')}`

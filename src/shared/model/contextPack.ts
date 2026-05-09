@@ -6,9 +6,27 @@ export const sourceTypes = [
   'jira',
   'linear',
   'github_issue',
+  'github_pr',
+  'notion',
+  'confluence',
+  'figma',
+  'google_docs',
+  'gitlab_issue',
+  'azure_devops_work_item',
+  'trello_card',
+  'clickup_task',
+  'asana_task',
+  'slack_thread',
+  'sentry_issue',
+  'datadog_incident',
+  'storybook_component',
+  'swagger_openapi',
+  'postman_docs',
   'selected_text',
   'manual',
+  'manual_paste',
   'web_page',
+  'generic_web',
 ] as const;
 
 export const targetRoles = [
@@ -37,6 +55,7 @@ export const generationErrorCodes = [
   'MISSING_BYOK_API_KEY',
   'INVALID_REQUEST',
   'CONTEXT_TOO_LONG',
+  'INVALID_ROLE_OUTPUT_COMBINATION',
   'BYOK_AUTH_FAILED',
   'BYOK_RATE_LIMITED',
   'BYOK_REQUEST_FAILED',
@@ -59,6 +78,23 @@ export type GenerationErrorCode = (typeof generationErrorCodes)[number];
 export type GenerationMetadataProvider =
   (typeof generationMetadataProviders)[number];
 
+export const LinkedItemSchema = z.object({
+  title: z.string().trim().optional(),
+  type: z.string().trim().optional(),
+  url: z.string().trim().optional(),
+});
+
+export const AttachmentMetadataSchema = z.object({
+  name: z.string().trim().optional(),
+  type: z.string().trim().optional(),
+  url: z.string().trim().optional(),
+});
+
+export const ExtractedTableSchema = z.object({
+  headers: z.array(z.string().trim()).default([]),
+  rows: z.array(z.array(z.string().trim())).default([]),
+});
+
 export const ExtractedContextSchema = z.object({
   sourceType: z.enum(sourceTypes),
   url: z.string().trim().optional(),
@@ -68,6 +104,15 @@ export const ExtractedContextSchema = z.object({
   labels: z.array(z.string().trim()).default([]),
   status: z.string().trim().optional(),
   priority: z.string().trim().optional(),
+  assignee: z.string().trim().optional(),
+  reporter: z.string().trim().optional(),
+  selectedText: z.string().trim().optional(),
+  rawText: z.string().trim().optional(),
+  linkedItems: z.array(LinkedItemSchema).default([]),
+  attachments: z.array(AttachmentMetadataSchema).default([]),
+  codeBlocks: z.array(z.string().trim()).default([]),
+  tables: z.array(ExtractedTableSchema).default([]),
+  extractedAt: z.string().trim().optional(),
 });
 
 export const GenerateBriefRequestSchema = z
@@ -244,6 +289,17 @@ export function getContextPlainText(context: ExtractedContext): string {
     ...context.labels,
     context.status,
     context.priority,
+    context.assignee,
+    context.reporter,
+    context.selectedText,
+    context.rawText,
+    ...context.linkedItems.map((item) => [item.title, item.url].filter(Boolean).join(' ')),
+    ...context.attachments.map((item) => [item.name, item.url].filter(Boolean).join(' ')),
+    ...context.codeBlocks,
+    ...context.tables.flatMap((table) => [
+      ...table.headers,
+      ...table.rows.flat(),
+    ]),
   ]
     .filter(Boolean)
     .join('\n')
@@ -282,6 +338,8 @@ export function getGenerationApiErrorMessage(
       return 'Please provide valid context.';
     case 'CONTEXT_TOO_LONG':
       return 'The context is too long. Shorten it before generating.';
+    case 'INVALID_ROLE_OUTPUT_COMBINATION':
+      return 'The selected role and output type cannot be used together.';
     case 'BYOK_AUTH_FAILED':
       return 'The selected provider rejected the provided API key.';
     case 'BYOK_RATE_LIMITED':
@@ -319,11 +377,45 @@ export function getSourceTypeLabel(sourceType: SourceType): string {
       return 'Linear Issue';
     case 'github_issue':
       return 'GitHub Issue';
+    case 'github_pr':
+      return 'GitHub Pull Request';
+    case 'notion':
+      return 'Notion Page';
+    case 'confluence':
+      return 'Confluence Page';
+    case 'figma':
+      return 'Figma File';
+    case 'google_docs':
+      return 'Google Doc';
+    case 'gitlab_issue':
+      return 'GitLab Issue';
+    case 'azure_devops_work_item':
+      return 'Azure DevOps Work Item';
+    case 'trello_card':
+      return 'Trello Card';
+    case 'clickup_task':
+      return 'ClickUp Task';
+    case 'asana_task':
+      return 'Asana Task';
+    case 'slack_thread':
+      return 'Slack Thread';
+    case 'sentry_issue':
+      return 'Sentry Issue';
+    case 'datadog_incident':
+      return 'Datadog Incident';
+    case 'storybook_component':
+      return 'Storybook Component';
+    case 'swagger_openapi':
+      return 'Swagger/OpenAPI Page';
+    case 'postman_docs':
+      return 'Postman Docs';
     case 'selected_text':
       return 'Selected Text';
     case 'manual':
+    case 'manual_paste':
       return 'Manual Context';
     case 'web_page':
+    case 'generic_web':
       return 'Web Page';
   }
 }

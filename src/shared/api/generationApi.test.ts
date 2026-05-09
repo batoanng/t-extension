@@ -1,7 +1,11 @@
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { GenerationApiError } from '@/shared/model/contextPack';
+import {
+  GenerateBriefRequestSchema,
+  GenerationApiError,
+  type SourceType,
+} from '@/shared/model/contextPack';
 
 import { generateBrief } from './generationApi';
 
@@ -40,6 +44,27 @@ const payload = {
   outputType: 'implementation_brief' as const,
   targetRole: 'developer' as const,
 };
+
+const v1SourceTypes = [
+  'figma',
+  'google_docs',
+  'gitlab_issue',
+  'azure_devops_work_item',
+  'trello_card',
+  'clickup_task',
+  'asana_task',
+  'slack_thread',
+  'sentry_issue',
+  'datadog_incident',
+  'storybook_component',
+  'swagger_openapi',
+  'postman_docs',
+  'github_pr',
+  'notion',
+  'confluence',
+  'manual_paste',
+  'generic_web',
+] as const satisfies readonly SourceType[];
 
 describe('generateBrief', () => {
   beforeEach(() => {
@@ -120,5 +145,19 @@ describe('generateBrief', () => {
         code: 'MISSING_BYOK_API_KEY',
       }),
     );
+  });
+
+  it.each(v1SourceTypes)('accepts %s source contexts', (sourceType) => {
+    expect(() =>
+      GenerateBriefRequestSchema.parse({
+        ...payload,
+        context: {
+          ...payload.context,
+          sourceType,
+        },
+        model: 'gpt-5.5',
+        provider: 'openai',
+      }),
+    ).not.toThrow();
   });
 });
