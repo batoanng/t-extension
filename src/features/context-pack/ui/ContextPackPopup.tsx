@@ -7,10 +7,7 @@ import {
   getRecentContextPackOutputs,
   setLastTargetRole,
 } from '@/shared/lib/contextPackStorage';
-import {
-  getAccessGate,
-  getAccessGateMessage,
-} from '@/shared/model/access';
+import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import {
   DEFAULT_OUTPUT_TYPE,
   type ExtractedContext,
@@ -97,13 +94,17 @@ function getContextPreview(context: ExtractedContext): string {
     .join('\n');
 }
 
-export function ContextPackPopup() {
-  const [context, setContext] =
-    useState<ExtractedContext>(manualContextTemplate);
+interface ContextPackPopupProps {
+  activePanel: 'generate' | 'recent';
+}
+
+export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
+  const [context, setContext] = useState<ExtractedContext>(
+    manualContextTemplate,
+  );
   const [manualContext, setManualContext] = useState('');
   const [targetRole, setTargetRole] = useState<TargetRole>('developer');
-  const [outputType, setOutputType] =
-    useState<OutputType>(DEFAULT_OUTPUT_TYPE);
+  const [outputType, setOutputType] = useState<OutputType>(DEFAULT_OUTPUT_TYPE);
   const [extractStatus, setExtractStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -232,8 +233,50 @@ export function ContextPackPopup() {
     }
   }
 
+  if (activePanel === 'recent') {
+    return (
+      <section className="panel recent-panel" aria-labelledby="recent-title">
+        <div className="panel-header">
+          <div>
+            <h2 className="panel-title" id="recent-title">
+              Recent outputs
+            </h2>
+            <p className="panel-subtitle">
+              Reuse markdown briefs generated in this browser.
+            </p>
+          </div>
+        </div>
+
+        {recentOutputs.length > 0 ? (
+          <div className="recent-output-list" aria-label="Recent outputs">
+            {recentOutputs.map((output) => (
+              <button
+                className="recent-output-button"
+                key={output.id}
+                onClick={() => {
+                  void navigator.clipboard.writeText(output.markdown);
+                }}
+                type="button"
+              >
+                <span>{output.title}</span>
+                <small>{output.sourceTitle}</small>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <InlineMessage>
+            Generated briefs will appear here after your first successful run.
+          </InlineMessage>
+        )}
+      </section>
+    );
+  }
+
   return (
-    <section className="panel context-panel" aria-labelledby="context-pack-title">
+    <section
+      className="panel context-panel"
+      aria-labelledby="context-pack-title"
+    >
       <div className="panel-header">
         <div>
           <h2 className="panel-title" id="context-pack-title">
@@ -305,12 +348,14 @@ export function ContextPackPopup() {
               value={outputType}
             >
               {outputTypeOptions
-                .filter((option) => isOutputTypeValidForRole(targetRole, option.value))
+                .filter((option) =>
+                  isOutputTypeValidForRole(targetRole, option.value),
+                )
                 .map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
             </select>
           </div>
         </div>
@@ -411,25 +456,6 @@ export function ContextPackPopup() {
             Download .md
           </button>
         </div>
-
-        {recentOutputs.length > 0 ? (
-          <div className="recent-output-list" aria-label="Recent outputs">
-            <h3 className="section-title">Recent outputs</h3>
-            {recentOutputs.map((output) => (
-              <button
-                className="recent-output-button"
-                key={output.id}
-                onClick={() => {
-                  void navigator.clipboard.writeText(output.markdown);
-                }}
-                type="button"
-              >
-                <span>{output.title}</span>
-                <small>{output.sourceTitle}</small>
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
     </section>
   );

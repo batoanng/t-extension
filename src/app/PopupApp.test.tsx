@@ -68,14 +68,16 @@ describe('PopupApp', () => {
     });
   });
 
-  it('shows the ContextPackAI header tooltip on focus', () => {
+  it('shows the ContextPackAI about panel from the header action', () => {
     render(<PopupApp />);
 
-    fireEvent.focus(
+    fireEvent.click(
       screen.getByRole('button', { name: 'About ContextPackAI' }),
     );
 
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'About ContextPackAI' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         'Convert Jira, Linear, GitHub issues, and selected text into role-specific markdown briefs.',
@@ -86,6 +88,8 @@ describe('PopupApp', () => {
   it('shows the author attribution with the LinkedIn link', () => {
     render(<PopupApp />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Support' }));
+
     const link = screen.getByRole('link', { name: 'Ba Toan Nguyen' });
 
     expect(screen.getByText(/Built by/i)).toBeInTheDocument();
@@ -93,6 +97,31 @@ describe('PopupApp', () => {
       'href',
       'https://www.linkedin.com/in/batoannguyen/',
     );
+  });
+
+  it('switches feature panels from the side rail', () => {
+    render(<PopupApp />);
+
+    expect(
+      screen.getByRole('heading', { name: 'ContextPackAI' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Access' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Generation Access' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recent' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Recent outputs' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Generated briefs will appear here after your first successful run.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('generates a developer brief from manually pasted context', async () => {

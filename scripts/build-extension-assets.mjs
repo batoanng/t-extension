@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { loadEnv } from 'vite';
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
@@ -23,10 +24,8 @@ const manifest = {
   manifest_version: 3,
   name: 'ContextPackAI',
   version: packageJson.version,
-  description:
-    'Turn browser work context into role-specific AI-ready briefs.',
+  description: 'Turn browser work context into role-specific AI-ready briefs.',
   action: {
-    default_popup: 'index.html',
     default_title: 'ContextPackAI',
     default_icon: {
       16: 'icons/icon16.png',
@@ -38,7 +37,10 @@ const manifest = {
     service_worker: 'background.js',
     type: 'module',
   },
-  permissions: ['activeTab', 'scripting', 'storage'],
+  side_panel: {
+    default_path: 'index.html',
+  },
+  permissions: ['activeTab', 'scripting', 'sidePanel', 'storage'],
   host_permissions: getHostPermissions(
     env.VITE_SERVER_BASE_URL?.trim() || 'http://localhost:3000',
   ),
