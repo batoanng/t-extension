@@ -81,7 +81,6 @@ describe('getAccessGate', () => {
       ready: true,
       ui: {
         accessIssue: null,
-        accessPanelCollapsed: false,
       },
     };
 

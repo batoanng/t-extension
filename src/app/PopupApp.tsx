@@ -4,7 +4,6 @@ import {
   HeartHandshake,
   History,
   KeyRound,
-  Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -56,36 +55,10 @@ const railItems = [
 
 export function PopupApp() {
   const [activePanel, setActivePanel] = useState<ActivePanel>('generate');
-  const activeLabel = panelLabels[activePanel];
 
   return (
     <main className="popup-shell">
       <section className="app-frame" aria-label="ContextPackAI side panel">
-        <header className="app-topbar">
-          <div className="brand-lockup">
-            <span className="brand-mark" aria-hidden="true">
-              <Sparkles size={18} strokeWidth={2.4} />
-            </span>
-            <div>
-              <p className="app-title">ContextPackAI</p>
-              <p className="app-page-title">{activeLabel}</p>
-            </div>
-          </div>
-
-          <div className="topbar-actions">
-            <button
-              aria-label="About ContextPackAI"
-              className="icon-button"
-              onClick={() => {
-                setActivePanel('about');
-              }}
-              type="button"
-            >
-              <CircleHelp size={17} />
-            </button>
-          </div>
-        </header>
-
         <div className="panel-layout">
           <div className="panel-content">
             {activePanel === 'generate' || activePanel === 'recent' ? (

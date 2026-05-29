@@ -157,7 +157,6 @@ export interface AccessSnapshot {
   ready: boolean;
   ui: {
     accessIssue: AccessIssue | null;
-    accessPanelCollapsed: boolean;
   };
 }
 

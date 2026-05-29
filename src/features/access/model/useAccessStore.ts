@@ -23,8 +23,8 @@ import {
   type AccessIssue,
   AccessMode,
   type AccessSnapshot,
-  MagicLinkStatus,
   type GenerationAccess,
+  MagicLinkStatus,
   type StoredAuthSession,
   type StoredByokConfig,
   type SubscriptionStatus,
@@ -67,7 +67,6 @@ const initialSnapshot: AccessSnapshot = {
   ready: false,
   ui: {
     accessIssue: null,
-    accessPanelCollapsed: false,
   },
 };
 
@@ -99,18 +98,6 @@ function updateSnapshot(updater: (snapshot: AccessSnapshot) => AccessSnapshot) {
   setSnapshot(updater(currentSnapshot));
 }
 
-function parseStoredBoolean(value: string | null): boolean | null {
-  if (value === 'true') {
-    return true;
-  }
-
-  if (value === 'false') {
-    return false;
-  }
-
-  return null;
-}
-
 function parseStoredByokConfig(
   storedValue: string | null,
   legacyApiKey: string | null,
@@ -134,19 +121,6 @@ function parseStoredByokConfig(
   return nextConfig;
 }
 
-function getDefaultAccessPanelCollapsed(input: {
-  byokConfig: StoredByokConfig;
-  storedValue: string | null;
-}) {
-  const storedValue = parseStoredBoolean(input.storedValue);
-
-  if (storedValue != null) {
-    return storedValue;
-  }
-
-  return Boolean(input.byokConfig.apiKey);
-}
-
 function setAccessIssue(accessIssue: AccessIssue | null) {
   updateSnapshot((snapshot) => ({
     ...snapshot,
@@ -159,20 +133,6 @@ function setAccessIssue(accessIssue: AccessIssue | null) {
 
 function clearAccessIssue() {
   setAccessIssue(null);
-}
-
-async function setAccessPanelCollapsed(collapsed: boolean) {
-  await setStoredString(
-    ACCESS_PANEL_COLLAPSED_STORAGE_KEY,
-    collapsed ? 'true' : 'false',
-  );
-  updateSnapshot((snapshot) => ({
-    ...snapshot,
-    ui: {
-      ...snapshot.ui,
-      accessPanelCollapsed: collapsed,
-    },
-  }));
 }
 
 function stopMagicLinkPolling() {
@@ -200,15 +160,8 @@ async function persistByokConfig(config: StoredByokConfig) {
 }
 
 async function hydrateSnapshot() {
-  const [
-    mode,
-    accessPanelCollapsed,
-    byokConfigJson,
-    legacyApiKey,
-    authSession,
-  ] = await Promise.all([
+  const [mode, byokConfigJson, legacyApiKey, authSession] = await Promise.all([
     getStoredString(ACCESS_MODE_STORAGE_KEY),
-    getStoredString(ACCESS_PANEL_COLLAPSED_STORAGE_KEY),
     getStoredString(BYOK_CONFIG_STORAGE_KEY),
     getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
     getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
@@ -247,10 +200,6 @@ async function hydrateSnapshot() {
     ready: true,
     ui: {
       accessIssue: null,
-      accessPanelCollapsed: getDefaultAccessPanelCollapsed({
-        byokConfig,
-        storedValue: accessPanelCollapsed,
-      }),
     },
   });
 
@@ -278,15 +227,9 @@ function ensureHydrated() {
   );
   releaseAccessPanelCollapsedSubscription = subscribeToStoredString(
     ACCESS_PANEL_COLLAPSED_STORAGE_KEY,
-    (collapsedValue) => {
+    () => {
       updateSnapshot((snapshot) => ({
         ...snapshot,
-        ui: {
-          ...snapshot.ui,
-          accessPanelCollapsed:
-            parseStoredBoolean(collapsedValue) ??
-            snapshot.ui.accessPanelCollapsed,
-        },
       }));
     },
   );
@@ -668,10 +611,6 @@ async function setMode(mode: AccessMode) {
 
     return;
   }
-
-  if (!currentSnapshot.byok.apiKey) {
-    await setAccessPanelCollapsed(false);
-  }
 }
 
 async function saveByokConfig(input: StoredByokConfig) {
@@ -690,7 +629,6 @@ async function saveByokConfig(input: StoredByokConfig) {
       accessIssue: null,
     },
   }));
-  await setAccessPanelCollapsed(true);
 }
 
 async function removeByokConfig() {
@@ -708,7 +646,6 @@ async function removeByokConfig() {
       accessIssue: null,
     },
   }));
-  await setAccessPanelCollapsed(false);
 }
 
 async function sendMagicLink(email: string) {
@@ -924,7 +861,6 @@ export function useAccessStore() {
     reportGenerationFailure,
     saveByokConfig,
     sendMagicLink,
-    setAccessPanelCollapsed,
     setMode,
     signOut,
   };
