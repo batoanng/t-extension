@@ -5,9 +5,10 @@ import {
   History,
   KeyRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AccessPanel } from '@/features/access/ui/AccessPanel';
+import { useSavedApiKey } from '@/features/api-key/model/useSavedApiKey';
 import { ContextPackPopup } from '@/features/context-pack/ui/ContextPackPopup';
 import { AuthorSupportSection } from '@/features/support/ui/AuthorSupportSection';
 
@@ -54,7 +55,23 @@ const railItems = [
 }>;
 
 export function PopupApp() {
-  const [activePanel, setActivePanel] = useState<ActivePanel>('generate');
+  const { hasApiKey, isReady: isApiKeyReady } = useSavedApiKey();
+  const hasResolvedInitialPanel = useRef(false);
+  const [activePanel, setActivePanel] = useState<ActivePanel>('access');
+
+  useEffect(() => {
+    if (!isApiKeyReady || hasResolvedInitialPanel.current) {
+      return;
+    }
+
+    setActivePanel(hasApiKey ? 'generate' : 'access');
+    hasResolvedInitialPanel.current = true;
+  }, [hasApiKey, isApiKeyReady]);
+
+  function selectPanel(panel: ActivePanel) {
+    hasResolvedInitialPanel.current = true;
+    setActivePanel(panel);
+  }
 
   return (
     <main className="popup-shell">
@@ -132,7 +149,7 @@ export function PopupApp() {
                   className={`rail-button${isActive ? ' is-active' : ''}`}
                   key={item.id}
                   onClick={() => {
-                    setActivePanel(item.id);
+                    selectPanel(item.id);
                   }}
                   title={item.label}
                   type="button"

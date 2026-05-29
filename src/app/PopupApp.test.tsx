@@ -48,6 +48,17 @@ function createAccessCatalogResponse() {
   });
 }
 
+function seedByokApiKey(apiKey = 'sk-test') {
+  localStorage.setItem(
+    'byok_access_config',
+    JSON.stringify({
+      apiKey,
+      provider: 'openai',
+      selectedModel: 'gpt-5.5',
+    }),
+  );
+}
+
 describe('PopupApp', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -68,12 +79,46 @@ describe('PopupApp', () => {
     });
   });
 
-  it('shows the ContextPackAI about panel from the header action', () => {
+  it('defaults to Generation Access when no key is configured', () => {
     render(<PopupApp />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'About ContextPackAI' }),
+    expect(
+      screen.getByRole('heading', { name: 'Generation Access' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Access' })).toHaveAttribute(
+      'aria-current',
+      'page',
     );
+  });
+
+  it('defaults to ContextPackAI when a key is already configured', async () => {
+    seedByokApiKey();
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'ContextPackAI' }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Generate' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('shows the ContextPackAI about panel from the side rail', async () => {
+    seedByokApiKey();
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'ContextPackAI' }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
 
     expect(
       screen.getByRole('heading', { name: 'About ContextPackAI' }),
@@ -103,6 +148,12 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     expect(
+      screen.getByRole('heading', { name: 'Generation Access' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    expect(
       screen.getByRole('heading', { name: 'ContextPackAI' }),
     ).toBeInTheDocument();
 
@@ -125,14 +176,7 @@ describe('PopupApp', () => {
   });
 
   it('generates a developer brief from manually pasted context', async () => {
-    localStorage.setItem(
-      'byok_access_config',
-      JSON.stringify({
-        apiKey: 'sk-test',
-        provider: 'openai',
-        selectedModel: 'gpt-5.5',
-      }),
-    );
+    seedByokApiKey();
     vi.mocked(axios.request)
       .mockResolvedValueOnce(createAccessCatalogResponse())
       .mockResolvedValueOnce(
