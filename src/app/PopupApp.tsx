@@ -5,12 +5,16 @@ import {
   History,
   KeyRound,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AccessPanel } from '@/features/access/ui/AccessPanel';
 import { useSavedApiKey } from '@/features/api-key/model/useSavedApiKey';
 import { ContextPackPopup } from '@/features/context-pack/ui/ContextPackPopup';
 import { AuthorSupportSection } from '@/features/support/ui/AuthorSupportSection';
+import {
+  CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
+  type ContextPackActionClickedMessage,
+} from '@/shared/api';
 
 type ActivePanel = 'generate' | 'access' | 'recent' | 'support' | 'about';
 
@@ -58,6 +62,7 @@ export function PopupApp() {
   const { hasApiKey, isReady: isApiKeyReady } = useSavedApiKey();
   const hasResolvedInitialPanel = useRef(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>('access');
+  const [extractionRequestId, setExtractionRequestId] = useState(0);
 
   useEffect(() => {
     if (!isApiKeyReady || hasResolvedInitialPanel.current) {
@@ -73,16 +78,58 @@ export function PopupApp() {
     setActivePanel(panel);
   }
 
+  const openGenerateAndExtract = useCallback(() => {
+    hasResolvedInitialPanel.current = true;
+    setActivePanel('generate');
+    setExtractionRequestId((current) => current + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!globalThis.chrome?.runtime?.onMessage) {
+      return undefined;
+    }
+
+    const handleMessage: Parameters<
+      typeof chrome.runtime.onMessage.addListener
+    >[0] = (message) => {
+      const typedMessage = message as ContextPackActionClickedMessage | undefined;
+
+      if (typedMessage?.type !== CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE) {
+        return false;
+      }
+
+      if (hasApiKey) {
+        openGenerateAndExtract();
+      } else {
+        hasResolvedInitialPanel.current = true;
+        setActivePanel('access');
+      }
+
+      return false;
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, [hasApiKey, openGenerateAndExtract]);
+
   return (
     <main className="popup-shell">
       <section className="app-frame" aria-label="ContextPackAI side panel">
         <div className="panel-layout">
           <div className="panel-content">
             {activePanel === 'generate' || activePanel === 'recent' ? (
-              <ContextPackPopup activePanel={activePanel} />
+              <ContextPackPopup
+                activePanel={activePanel}
+                extractionRequestId={extractionRequestId}
+              />
             ) : null}
 
-            {activePanel === 'access' ? <AccessPanel /> : null}
+            {activePanel === 'access' ? (
+              <AccessPanel onAccessConfigured={openGenerateAndExtract} />
+            ) : null}
 
             {activePanel === 'support' ? (
               <section

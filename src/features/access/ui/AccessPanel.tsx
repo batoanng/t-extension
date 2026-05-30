@@ -6,7 +6,11 @@ import { InlineMessage } from '@/shared/ui/InlineMessage';
 
 import { useAccessStore } from '../model/useAccessStore';
 
-export function AccessPanel() {
+interface AccessPanelProps {
+  onAccessConfigured?: () => void;
+}
+
+export function AccessPanel({ onAccessConfigured }: AccessPanelProps) {
   const accessStore = useAccessStore();
   const {
     byok,
@@ -32,6 +36,16 @@ export function AccessPanel() {
     mode === AccessMode.Byok
       ? (accessIssue?.message ?? null)
       : (ui.accessIssue?.message ?? null);
+
+  async function handleSaveByokConfig(
+    config: Parameters<typeof saveByokConfig>[0],
+  ) {
+    await saveByokConfig(config);
+
+    if (config.apiKey?.trim()) {
+      onAccessConfigured?.();
+    }
+  }
 
   return (
     <section className={`panel access-panel`} aria-labelledby="access-title">
@@ -103,7 +117,7 @@ export function AccessPanel() {
               catalogStatus={catalog.status}
               isReady={ready}
               onRemoveByokConfig={removeByokConfig}
-              onSaveByokConfig={saveByokConfig}
+              onSaveByokConfig={handleSaveByokConfig}
             />
           </div>
         ) : (

@@ -1,7 +1,9 @@
 import {
   ACCESS_CATALOG_MESSAGE_TYPE,
+  CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
   type AccessCatalogMessageRequest,
   type AccessCatalogMessageResponse,
+  type ContextPackActionClickedMessage,
 } from '@/shared/api';
 import { joinUrl } from '@/shared/api/httpClient';
 import {
@@ -82,6 +84,14 @@ if (globalThis.chrome?.sidePanel) {
 if (globalThis.chrome?.action?.onClicked && globalThis.chrome?.sidePanel) {
   chrome.action.onClicked.addListener((tab) => {
     const windowId = tab.windowId;
+    const message: ContextPackActionClickedMessage = {
+      requestedAt: Date.now(),
+      tabId: tab.id,
+      type: CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
+      windowId,
+    };
+
+    void chrome.runtime.sendMessage(message).catch(() => undefined);
 
     if (typeof windowId !== 'number') {
       return;

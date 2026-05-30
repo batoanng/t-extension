@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { env } from '@/shared/config';
@@ -96,9 +96,13 @@ function getContextPreview(context: ExtractedContext): string {
 
 interface ContextPackPopupProps {
   activePanel: 'generate' | 'recent';
+  extractionRequestId?: number;
 }
 
-export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
+export function ContextPackPopup({
+  activePanel,
+  extractionRequestId = 0,
+}: ContextPackPopupProps) {
   const [context, setContext] = useState<ExtractedContext>(
     manualContextTemplate,
   );
@@ -130,6 +134,40 @@ export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
     contextValidationMessage == null &&
     status !== 'loading';
   const contextPreview = useMemo(() => getContextPreview(context), [context]);
+  const hasMounted = useRef(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const refreshContext = useCallback(async () => {
+    setExtractStatus('loading');
+    setExtractErrorMessage(null);
+
+    try {
+      const extractedContext = await extractCurrentTabContext();
+
+      if (!isMounted.current) {
+        return;
+      }
+
+      setContext(extractedContext);
+      setManualContext(extractedContext.description ?? '');
+      setExtractStatus('success');
+    } catch {
+      if (!isMounted.current) {
+        return;
+      }
+
+      setExtractStatus('error');
+      setExtractErrorMessage(
+        'Unable to extract this page. Paste context manually.',
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,18 +175,15 @@ export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
     void Promise.all([
       getLastTargetRole(),
       getRecentContextPackOutputs(),
-      extractCurrentTabContext(),
+      refreshContext(),
     ])
-      .then(([storedRole, storedRecentOutputs, extractedContext]) => {
+      .then(([storedRole, storedRecentOutputs]) => {
         if (cancelled) {
           return;
         }
 
         setTargetRole(storedRole);
         loadRecentOutputs(storedRecentOutputs);
-        setContext(extractedContext);
-        setManualContext(extractedContext.description ?? '');
-        setExtractStatus('success');
       })
       .catch(() => {
         if (cancelled) {
@@ -164,7 +199,20 @@ export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
     return () => {
       cancelled = true;
     };
-  }, [loadRecentOutputs]);
+  }, [loadRecentOutputs, refreshContext]);
+
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    if (activePanel !== 'generate') {
+      return;
+    }
+
+    void refreshContext();
+  }, [activePanel, extractionRequestId, refreshContext]);
 
   async function handleGenerateClick() {
     if (!canGenerate) {
@@ -217,20 +265,7 @@ export function ContextPackPopup({ activePanel }: ContextPackPopupProps) {
   }
 
   async function handleRefreshContextClick() {
-    setExtractStatus('loading');
-    setExtractErrorMessage(null);
-
-    try {
-      const extractedContext = await extractCurrentTabContext();
-      setContext(extractedContext);
-      setManualContext(extractedContext.description ?? '');
-      setExtractStatus('success');
-    } catch {
-      setExtractStatus('error');
-      setExtractErrorMessage(
-        'Unable to extract this page. Paste context manually.',
-      );
-    }
+    await refreshContext();
   }
 
   if (activePanel === 'recent') {

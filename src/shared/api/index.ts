@@ -1,4 +1,8 @@
 export {
+  CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
+  type ContextPackActionClickedMessage,
+} from './actionMessage';
+export {
   ACCESS_CATALOG_MESSAGE_TYPE,
   createCheckoutSession,
   createCustomerPortalSession,
