@@ -1,10 +1,4 @@
-import {
-  CircleHelp,
-  FileText,
-  HeartHandshake,
-  History,
-  KeyRound,
-} from 'lucide-react';
+import { FileText, HeartHandshake, History, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AccessPanel } from '@/features/access/ui/AccessPanel';
@@ -16,11 +10,10 @@ import {
   type ContextPackActionClickedMessage,
 } from '@/shared/api';
 
-type ActivePanel = 'generate' | 'access' | 'recent' | 'support' | 'about';
+type ActivePanel = 'generate' | 'access' | 'recent' | 'support';
 
 const panelLabels: Record<ActivePanel, string> = {
   access: 'Access',
-  about: 'About',
   generate: 'Generate',
   recent: 'Recent',
   support: 'Support',
@@ -46,11 +39,6 @@ const railItems = [
     icon: HeartHandshake,
     id: 'support',
     label: panelLabels.support,
-  },
-  {
-    icon: CircleHelp,
-    id: 'about',
-    label: panelLabels.about,
   },
 ] satisfies Array<{
   icon: typeof FileText;
@@ -92,7 +80,9 @@ export function PopupApp() {
     const handleMessage: Parameters<
       typeof chrome.runtime.onMessage.addListener
     >[0] = (message) => {
-      const typedMessage = message as ContextPackActionClickedMessage | undefined;
+      const typedMessage = message as
+        | ContextPackActionClickedMessage
+        | undefined;
 
       if (typedMessage?.type !== CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE) {
         return false;
@@ -147,39 +137,6 @@ export function PopupApp() {
                   </div>
                 </div>
                 <AuthorSupportSection />
-              </section>
-            ) : null}
-
-            {activePanel === 'about' ? (
-              <section
-                className="panel about-panel"
-                aria-labelledby="about-title"
-              >
-                <div className="panel-header">
-                  <div>
-                    <h2 className="panel-title" id="about-title">
-                      About ContextPackAI
-                    </h2>
-                    <p className="panel-subtitle">
-                      Convert Jira, Linear, GitHub issues, and selected text
-                      into role-specific markdown briefs.
-                    </p>
-                  </div>
-                </div>
-                <div className="about-grid">
-                  <div className="about-stat">
-                    <span>Input</span>
-                    <strong>Browser context</strong>
-                  </div>
-                  <div className="about-stat">
-                    <span>Output</span>
-                    <strong>Markdown brief</strong>
-                  </div>
-                  <div className="about-stat">
-                    <span>Access</span>
-                    <strong>BYOK or shared</strong>
-                  </div>
-                </div>
               </section>
             ) : null}
           </div>

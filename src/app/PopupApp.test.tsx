@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -193,29 +199,6 @@ describe('PopupApp', () => {
     );
   });
 
-  it('shows the ContextPackAI about panel from the side rail', async () => {
-    seedByokApiKey();
-
-    render(<PopupApp />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { name: 'ContextPackAI' }),
-      ).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'About' }));
-
-    expect(
-      screen.getByRole('heading', { name: 'About ContextPackAI' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Convert Jira, Linear, GitHub issues, and selected text into role-specific markdown briefs.',
-      ),
-    ).toBeInTheDocument();
-  });
-
   it('shows the author attribution with the LinkedIn link', () => {
     render(<PopupApp />);
 
@@ -358,9 +341,7 @@ describe('PopupApp', () => {
       expect(screen.getByLabelText('Context preview')).toHaveValue(
         'Title: Chrome Extensions',
       );
-      expect(
-        screen.getByText('Detected: Manual Context'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Detected: Manual Context')).toBeInTheDocument();
     });
 
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
