@@ -1,16 +1,13 @@
 import { FileText, HeartHandshake, History, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AccessPanel } from '@/features/access/ui/AccessPanel';
 import { useSavedApiKey } from '@/features/api-key/model/useSavedApiKey';
-import { ContextPackPopup } from '@/features/context-pack/ui/ContextPackPopup';
-import { AuthorSupportSection } from '@/features/support/ui/AuthorSupportSection';
 import {
   CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
   type ContextPackActionClickedMessage,
 } from '@/shared/api';
 
-type ActivePanel = 'generate' | 'access' | 'recent' | 'support';
+import { ActivePanelContent, type ActivePanel } from './panels';
 
 const panelLabels: Record<ActivePanel, string> = {
   access: 'Access',
@@ -110,35 +107,11 @@ export function PopupApp() {
       <section className="app-frame" aria-label="ContextPackAI side panel">
         <div className="panel-layout">
           <div className="panel-content">
-            {activePanel === 'generate' || activePanel === 'recent' ? (
-              <ContextPackPopup
-                activePanel={activePanel}
-                extractionRequestId={extractionRequestId}
-              />
-            ) : null}
-
-            {activePanel === 'access' ? (
-              <AccessPanel onAccessConfigured={openGenerateAndExtract} />
-            ) : null}
-
-            {activePanel === 'support' ? (
-              <section
-                className="panel support-panel"
-                aria-labelledby="support-title"
-              >
-                <div className="panel-header">
-                  <div>
-                    <h2 className="panel-title" id="support-title">
-                      Support
-                    </h2>
-                    <p className="panel-subtitle">
-                      Keep ContextPackAI useful and easy to maintain.
-                    </p>
-                  </div>
-                </div>
-                <AuthorSupportSection />
-              </section>
-            ) : null}
+            <ActivePanelContent
+              activePanel={activePanel}
+              extractionRequestId={extractionRequestId}
+              onAccessConfigured={openGenerateAndExtract}
+            />
           </div>
 
           <nav className="rail-nav" aria-label="ContextPackAI sections">
