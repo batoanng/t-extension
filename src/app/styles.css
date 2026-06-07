@@ -423,8 +423,8 @@ button {
 .detected-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .selector-grid {
@@ -472,8 +472,11 @@ button {
 }
 
 .compact-button {
-  min-height: 34px;
-  padding: 0 12px;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .button-ghost {
@@ -623,6 +626,7 @@ button {
 .recent-delete-button:hover:not(:disabled),
 .recent-delete-button:focus-visible {
   color: var(--danger);
+  border-color: var(--danger);
 }
 
 .recent-output-button span,

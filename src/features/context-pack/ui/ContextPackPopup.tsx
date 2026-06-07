@@ -22,7 +22,6 @@ import {
   createManualExtractedContext,
   getContextPlainText,
   getContextValidationMessage,
-  getSourceTypeLabel,
 } from '@/shared/model/contextPack';
 import {
   type ExtractionMimeType,
@@ -74,7 +73,6 @@ export function ContextPackPopup({
 }: ContextPackPopupProps) {
   const [manualContext, setManualContext] = useState('');
   const [agentType, setAgentType] = useState<AgentType>(DEFAULT_AGENT_TYPE);
-  const [sourceLabel, setSourceLabel] = useState('Manual Context');
   const [extractStatus, setExtractStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -136,7 +134,6 @@ export function ContextPackPopup({
       }
 
       setManualContext(getContextPlainText(extractedContext));
-      setSourceLabel(getSourceTypeLabel(extractedContext.sourceType));
       setExtractStatus('success');
     } catch {
       if (!isMounted.current) {
@@ -182,7 +179,6 @@ export function ContextPackPopup({
       return;
     }
 
-    setSourceLabel(`Restored: ${restoredOutput.sourceTitle}`);
     setExtractStatus('success');
     setExtractErrorMessage(null);
 
@@ -255,7 +251,6 @@ export function ContextPackPopup({
 
   function handleManualContextChange(value: string) {
     setManualContext(value);
-    setSourceLabel('Manual Context');
   }
 
   async function handleRefreshContextClick() {
@@ -312,7 +307,6 @@ export function ContextPackPopup({
         setManualContext((currentText) =>
           appendMarkdown(currentText, extractionResult.markdown),
         );
-        setSourceLabel(`Captured: ${extractionResult.title}`);
       }
     } catch {
       setCaptureError(
@@ -340,7 +334,6 @@ export function ContextPackPopup({
 
       <div className="stack">
         <div className="detected-row">
-          <span className="meta-pill">Source: {sourceLabel}</span>
           <button
             className="button button-secondary compact-button"
             disabled={extractStatus === 'loading'}
@@ -350,7 +343,18 @@ export function ContextPackPopup({
             type="button"
           >
             <RefreshCw size={15} strokeWidth={2.2} />
-            {extractStatus === 'loading' ? 'Refreshing...' : 'Refresh page'}
+            New session
+          </button>
+          <button
+            className="button button-secondary compact-button"
+            disabled={!canCapture}
+            onClick={() => {
+              void handleCaptureVisibleTab();
+            }}
+            type="button"
+          >
+            <Camera size={15} strokeWidth={2.2} />
+            {captureStatus === 'loading' ? 'Capturing...' : 'Capture screen'}
           </button>
         </div>
 
@@ -430,17 +434,6 @@ export function ContextPackPopup({
         ) : null}
 
         <div className="button-row">
-          <button
-            className="button button-secondary"
-            disabled={!canCapture}
-            onClick={() => {
-              void handleCaptureVisibleTab();
-            }}
-            type="button"
-          >
-            <Camera size={16} strokeWidth={2.2} />
-            {captureStatus === 'loading' ? 'Capturing...' : 'Capture screen'}
-          </button>
           <button
             className="button button-primary"
             disabled={!canGenerate}

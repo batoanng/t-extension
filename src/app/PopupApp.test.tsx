@@ -313,6 +313,40 @@ describe('PopupApp', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows catalog-unavailable access errors in red across generation tabs', async () => {
+    seedByokApiKey();
+    vi.mocked(axios.request).mockRejectedValue(new Error('offline'));
+    const catalogUnavailableMessage =
+      'The provider catalog is unavailable right now. Try again when you are back online.';
+
+    render(<PopupApp />);
+
+    await waitFor(() => {
+      expect(screen.getByText(catalogUnavailableMessage)).toHaveAttribute(
+        'data-tone',
+        'error',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Visualize' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(catalogUnavailableMessage)).toHaveAttribute(
+        'data-tone',
+        'error',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sequence' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(catalogUnavailableMessage)).toHaveAttribute(
+        'data-tone',
+        'error',
+      );
+    });
+  });
+
   it('opens Generate and extracts context after saving BYOK access', async () => {
     stubChromeExtraction([
       createPageSnapshot({

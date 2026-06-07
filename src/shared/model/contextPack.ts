@@ -147,7 +147,6 @@ export const GenerateBriefRequestSchema = z
         path: ['context'],
       });
     }
-
   });
 
 export const MissingInformationItemSchema = z.object({
@@ -247,8 +246,12 @@ export function getContextPlainText(context: ExtractedContext): string {
     context.reporter,
     context.selectedText,
     context.rawText,
-    ...context.linkedItems.map((item) => [item.title, item.url].filter(Boolean).join(' ')),
-    ...context.attachments.map((item) => [item.name, item.url].filter(Boolean).join(' ')),
+    ...context.linkedItems.map((item) =>
+      [item.title, item.url].filter(Boolean).join(' '),
+    ),
+    ...context.attachments.map((item) =>
+      [item.name, item.url].filter(Boolean).join(' '),
+    ),
     ...context.codeBlocks,
     ...context.tables.flatMap((table) => [
       ...table.headers,
@@ -273,7 +276,7 @@ export function createManualExtractedContext(input: {
     linkedItems: [],
     sourceType: 'manual_paste',
     tables: [],
-    title: input.title ?? 'Manual context',
+    title: input.title ?? 'Input your context...',
   };
 }
 
