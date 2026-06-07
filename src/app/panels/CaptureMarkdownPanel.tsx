@@ -1,23 +1,17 @@
 import { Camera, Copy, Download, Upload } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
-import { extractMarkdown } from '@/shared/api';
+import { useCaptureMarkdown } from '@/features/capture/model/useCaptureMarkdown';
 import { env } from '@/shared/config';
-import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import { downloadMarkdown } from '@/shared/lib/markdownDownload';
 import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import type { RecentCaptureOutput } from '@/shared/model/contextPack';
 import {
-  ExtractionApiError,
-  type ExtractMarkdownResponse,
   type ExtractionMimeType,
   extractionMimeTypes,
-  getExtractionApiErrorMessage,
 } from '@/shared/model/extraction';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
-
-const extractionRequestTimeoutMs = 45_000;
 
 function isSupportedMimeType(value: string): value is ExtractionMimeType {
   return extractionMimeTypes.includes(value as ExtractionMimeType);
@@ -55,14 +49,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function getInitialErrorMessage(error: unknown): string {
-  if (error instanceof ExtractionApiError) {
-    return getExtractionApiErrorMessage(error.code);
-  }
-
-  return 'Unable to extract Markdown from this source.';
-}
-
 interface CaptureMarkdownPanelProps {
   restoredOutput?: RecentCaptureOutput | null;
 }
@@ -72,15 +58,17 @@ export function CaptureMarkdownPanel({
 }: CaptureMarkdownPanelProps) {
   const accessStore = useAccessStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>(
-    'idle',
-  );
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<ExtractMarkdownResponse | null>(null);
-  const [status, setStatus] = useState<
-    'idle' | 'loading' | 'success' | 'error'
-  >('idle');
-  const [sourceLabel, setSourceLabel] = useState('No source captured');
+  const {
+    copyMarkdown,
+    copyStatus,
+    errorMessage,
+    restoreCaptureOutput,
+    result,
+    runCaptureMarkdown,
+    setCaptureError,
+    sourceLabel,
+    status,
+  } = useCaptureMarkdown();
   const accessGate = getAccessGate(accessStore);
   const canExtract =
     accessStore.ready &&
@@ -100,19 +88,8 @@ export function CaptureMarkdownPanel({
       return;
     }
 
-    setCopyStatus('idle');
-    setErrorMessage(null);
-    setResult({
-      confidence: 'medium',
-      createdAt: restoredOutput.createdAt,
-      id: restoredOutput.id,
-      markdown: restoredOutput.markdown,
-      title: restoredOutput.title,
-      warnings: restoredOutput.warnings,
-    });
-    setSourceLabel(restoredOutput.sourceTitle);
-    setStatus('success');
-  }, [restoredOutput]);
+    restoreCaptureOutput(restoredOutput);
+  }, [restoreCaptureOutput, restoredOutput]);
 
   async function runExtraction(input: {
     dataBase64: string;
@@ -134,50 +111,16 @@ export function CaptureMarkdownPanel({
       return;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, extractionRequestTimeoutMs);
-
-    setCopyStatus('idle');
-    setErrorMessage(null);
-    setResult(null);
-    setStatus('loading');
-    setSourceLabel(input.source.title ?? input.filename ?? 'Captured source');
-
-    try {
-      const nextResult = await extractMarkdown({
-        access,
-        payload: input,
-        serverBaseUrl: env.serverBaseUrl,
-        signal: controller.signal,
-      });
-
-      setResult(nextResult);
-      setSourceLabel(nextResult.title);
-      setStatus('success');
-      await addRecentContextPackOutput({
-        createdAt: nextResult.createdAt,
-        id: nextResult.id,
-        kind: 'capture',
-        markdown: nextResult.markdown,
-        source: input.source,
-        sourceTitle: nextResult.title,
-        title: nextResult.title,
-        warnings: nextResult.warnings,
-      });
-    } catch (error) {
-      setErrorMessage(getInitialErrorMessage(error));
-      setStatus('error');
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    await runCaptureMarkdown({
+      access,
+      payload: input,
+      serverBaseUrl: env.serverBaseUrl,
+    });
   }
 
   async function handleCaptureVisibleTab() {
     if (!globalThis.chrome?.tabs?.captureVisibleTab) {
-      setErrorMessage('Visible tab capture is available only inside Chrome.');
-      setStatus('error');
+      setCaptureError('Visible tab capture is available only inside Chrome.');
       return;
     }
 
@@ -192,8 +135,7 @@ export function CaptureMarkdownPanel({
       const payload = getDataUrlPayload(dataUrl);
 
       if (!payload || !isSupportedMimeType(payload.mimeType)) {
-        setErrorMessage('Chrome returned an unsupported screenshot format.');
-        setStatus('error');
+        setCaptureError('Chrome returned an unsupported screenshot format.');
         return;
       }
 
@@ -208,10 +150,9 @@ export function CaptureMarkdownPanel({
         },
       });
     } catch {
-      setErrorMessage(
+      setCaptureError(
         'Unable to capture the visible tab. Reopen the side panel from the extension button and try again.',
       );
-      setStatus('error');
     }
   }
 
@@ -221,8 +162,7 @@ export function CaptureMarkdownPanel({
     }
 
     if (!isSupportedMimeType(file.type)) {
-      setErrorMessage('Upload a PNG, JPEG, WebP, or PDF source.');
-      setStatus('error');
+      setCaptureError('Upload a PNG, JPEG, WebP, or PDF source.');
       return;
     }
 
@@ -231,8 +171,7 @@ export function CaptureMarkdownPanel({
       const payload = getDataUrlPayload(dataUrl);
 
       if (!payload || !isSupportedMimeType(payload.mimeType)) {
-        setErrorMessage('Upload a PNG, JPEG, WebP, or PDF source.');
-        setStatus('error');
+        setCaptureError('Upload a PNG, JPEG, WebP, or PDF source.');
         return;
       }
 
@@ -246,26 +185,11 @@ export function CaptureMarkdownPanel({
         },
       });
     } catch {
-      setErrorMessage('Unable to read the selected file.');
-      setStatus('error');
+      setCaptureError('Unable to read the selected file.');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    }
-  }
-
-  async function handleCopy() {
-    if (!markdown) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(markdown);
-      setCopyStatus('success');
-    } catch {
-      setCopyStatus('error');
-      setErrorMessage('Unable to copy the markdown. Please copy it manually.');
     }
   }
 
@@ -361,7 +285,7 @@ export function CaptureMarkdownPanel({
             className="button button-secondary"
             disabled={!markdown || status === 'loading'}
             onClick={() => {
-              void handleCopy();
+              void copyMarkdown();
             }}
             type="button"
           >

@@ -1,5 +1,3 @@
-export const OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
-
 type StorageListener = (value: string | null) => void;
 
 const localListeners = new Map<string, Set<StorageListener>>();

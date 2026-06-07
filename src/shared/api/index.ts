@@ -18,4 +18,6 @@ export {
 } from './accessApi';
 export { createDonationCheckoutSession } from './donationApi';
 export { extractMarkdown } from './extractionApi';
+export { useExtractMarkdownMutation } from './extractionHooks';
 export { generateBrief } from './generationApi';
+export { useGenerateBriefMutation } from './generationHooks';

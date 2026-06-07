@@ -13,19 +13,19 @@ describe('chromeStorage', () => {
   });
 
   it('falls back to localStorage when chrome.storage is unavailable', async () => {
-    await setStoredString('openai_api_key', 'sk-local');
+    await setStoredString('storage_test_key', 'sk-local');
 
-    expect(await getStoredString('openai_api_key')).toBe('sk-local');
+    expect(await getStoredString('storage_test_key')).toBe('sk-local');
 
-    await removeStoredString('openai_api_key');
+    await removeStoredString('storage_test_key');
 
-    expect(await getStoredString('openai_api_key')).toBeNull();
+    expect(await getStoredString('storage_test_key')).toBeNull();
   });
 
   it('subscribes to chrome.storage.onChanged when available', async () => {
     const addListener = vi.fn();
     const removeListener = vi.fn();
-    const get = vi.fn().mockResolvedValue({ openai_api_key: 'sk-live' });
+    const get = vi.fn().mockResolvedValue({ storage_test_key: 'sk-live' });
     const set = vi.fn().mockResolvedValue(undefined);
     const remove = vi.fn().mockResolvedValue(undefined);
 
@@ -44,14 +44,14 @@ describe('chromeStorage', () => {
     });
 
     const listener = vi.fn();
-    const unsubscribe = subscribeToStoredString('openai_api_key', listener);
+    const unsubscribe = subscribeToStoredString('storage_test_key', listener);
 
     expect(addListener).toHaveBeenCalledTimes(1);
 
     const changeHandler = addListener.mock.calls[0][0];
     changeHandler(
       {
-        openai_api_key: {
+        storage_test_key: {
           newValue: 'sk-updated',
           oldValue: 'sk-live',
         },

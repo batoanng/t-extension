@@ -1,6 +1,6 @@
 import { useCallback, useReducer } from 'react';
 
-import { generateBrief } from '@/shared/api';
+import { useGenerateBriefMutation } from '@/shared/api';
 import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import type { GenerationAccess } from '@/shared/model/access';
 import {
@@ -116,6 +116,7 @@ type RunGenerateBriefResult =
 
 export function useGenerateBrief() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const generateBriefMutation = useGenerateBriefMutation();
   const loadRecentOutputs = useCallback(
     (recentOutputs: RecentContextPackOutput[]) => {
       dispatch({ recentOutputs, type: 'recent-loaded' });
@@ -172,7 +173,7 @@ export function useGenerateBrief() {
       dispatch({ type: 'generate-started' });
 
       try {
-        const result = await generateBrief({
+        const result = await generateBriefMutation.mutateAsync({
           access,
           payload,
           signal: controller.signal,

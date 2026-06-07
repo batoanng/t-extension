@@ -19,6 +19,7 @@ import type {
 } from '@/shared/model/contextPack';
 
 import { ActivePanelContent, type ActivePanel } from './panels';
+import { AppQueryProvider } from './queryClient';
 
 const panelLabels: Record<ActivePanel, string> = {
   access: 'Access',
@@ -61,6 +62,14 @@ const railItems = [
 }>;
 
 export function PopupApp() {
+  return (
+    <AppQueryProvider>
+      <PopupAppContent />
+    </AppQueryProvider>
+  );
+}
+
+function PopupAppContent() {
   const { hasApiKey, isReady: isApiKeyReady } = useSavedApiKey();
   const hasResolvedInitialPanel = useRef(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>('access');

@@ -12,7 +12,7 @@ import {
 
 import { isCanceledRequest, requestJson } from './httpClient';
 
-interface ExtractMarkdownParams {
+export interface ExtractMarkdownParams {
   access: GenerationAccess;
   payload: ExtractMarkdownRequest;
   serverBaseUrl: string;

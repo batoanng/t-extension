@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setStoredString } from '@/shared/lib/chromeStorage';
+import { setStoredJson } from '@/shared/lib/chromeStorage';
 import {
   __resetSavedApiKeyStoreForTests,
   useSavedApiKey,
@@ -14,7 +14,11 @@ describe('useSavedApiKey', () => {
   });
 
   it('hydrates the saved key from storage and reacts to updates', async () => {
-    await setStoredString('openai_api_key', 'sk-existing');
+    await setStoredJson('byok_access_config', {
+      apiKey: 'sk-existing',
+      provider: 'openrouter',
+      selectedModel: 'openrouter/auto',
+    });
 
     const { result } = renderHook(() => useSavedApiKey());
 

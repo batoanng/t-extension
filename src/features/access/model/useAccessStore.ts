@@ -43,7 +43,6 @@ const ACCESS_PANEL_COLLAPSED_STORAGE_KEY =
   'contextpackai_access_panel_collapsed';
 const AUTH_SESSION_STORAGE_KEY = 'pro_auth_session';
 const BYOK_CONFIG_STORAGE_KEY = 'byok_access_config';
-const LEGACY_OPENAI_API_KEY_STORAGE_KEY = 'openai_api_key';
 const accessTokenRefreshBufferMs = 30_000;
 const magicLinkPollIntervalMs = 2_000;
 
@@ -100,7 +99,6 @@ function updateSnapshot(updater: (snapshot: AccessSnapshot) => AccessSnapshot) {
 
 function parseStoredByokConfig(
   storedValue: string | null,
-  legacyApiKey: string | null,
   catalog: AccessSnapshot['catalog']['data'],
 ): StoredByokConfig {
   let parsed: Partial<StoredByokConfig> | null = null;
@@ -113,10 +111,7 @@ function parseStoredByokConfig(
     }
   }
 
-  const nextConfig = reconcileByokConfig(catalog, {
-    ...parsed,
-    apiKey: typeof parsed?.apiKey === 'string' ? parsed.apiKey : legacyApiKey,
-  });
+  const nextConfig = reconcileByokConfig(catalog, parsed);
 
   return nextConfig;
 }
@@ -156,17 +151,15 @@ async function persistAuthSession(session: StoredAuthSession | null) {
 
 async function persistByokConfig(config: StoredByokConfig) {
   await setStoredJson(BYOK_CONFIG_STORAGE_KEY, config);
-  await removeStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY);
 }
 
 async function hydrateSnapshot() {
-  const [mode, byokConfigJson, legacyApiKey, authSession] = await Promise.all([
+  const [mode, byokConfigJson, authSession] = await Promise.all([
     getStoredString(ACCESS_MODE_STORAGE_KEY),
     getStoredString(BYOK_CONFIG_STORAGE_KEY),
-    getStoredString(LEGACY_OPENAI_API_KEY_STORAGE_KEY),
     getStoredJson<StoredAuthSession>(AUTH_SESSION_STORAGE_KEY),
   ]);
-  const byokConfig = parseStoredByokConfig(byokConfigJson, legacyApiKey, null);
+  const byokConfig = parseStoredByokConfig(byokConfigJson, null);
 
   currentAuthSession = authSession;
 
@@ -240,7 +233,6 @@ function ensureHydrated() {
         ...snapshot,
         byok: parseStoredByokConfig(
           byokConfigJson,
-          snapshot.byok.apiKey,
           snapshot.catalog.data,
         ),
       }));

@@ -12,7 +12,7 @@ import {
 
 import { isCanceledRequest, requestJson } from './httpClient';
 
-interface GenerateBriefParams {
+export interface GenerateBriefParams {
   serverBaseUrl: string;
   access: GenerationAccess;
   payload: GenerateBriefRequest;

@@ -37,22 +37,6 @@ export const agentTypes = [
   'security-architect',
 ] as const;
 
-const legacyTargetRoles = [
-  'developer',
-  'tester',
-  'business_analyst',
-  'project_manager',
-  'designer',
-] as const;
-
-const legacyOutputTypes = [
-  'implementation_brief',
-  'test_plan',
-  'requirements_brief',
-  'delivery_brief',
-  'ux_brief',
-] as const;
-
 export const generationMetadataProviders = [
   ...byokProviders,
   'shared-hosted',
@@ -63,7 +47,6 @@ export const generationErrorCodes = [
   'MISSING_BYOK_API_KEY',
   'INVALID_REQUEST',
   'CONTEXT_TOO_LONG',
-  'INVALID_ROLE_OUTPUT_COMBINATION',
   'BYOK_AUTH_FAILED',
   'BYOK_RATE_LIMITED',
   'BYOK_REQUEST_FAILED',
@@ -126,7 +109,6 @@ export const GenerateBriefRequestSchema = z
     agentType: z.enum(agentTypes).default(DEFAULT_AGENT_TYPE),
     context: ExtractedContextSchema,
     credentialMode: z.enum(['byok', 'subscription']).default('byok'),
-    model: z.string().trim().min(1).optional(),
     options: z
       .object({
         includeComments: z.boolean().default(true),
@@ -146,9 +128,6 @@ export const GenerateBriefRequestSchema = z
         outputFormat: 'markdown',
         tone: 'detailed',
       }),
-    outputType: z.enum(legacyOutputTypes).optional(),
-    provider: z.enum(byokProviders).optional(),
-    targetRole: z.enum(legacyTargetRoles).optional(),
   })
   .superRefine((value, context) => {
     const contextText = getContextPlainText(value.context);
@@ -313,8 +292,6 @@ export function getGenerationApiErrorMessage(
       return 'Please provide valid context.';
     case 'CONTEXT_TOO_LONG':
       return 'The context is too long. Shorten it before generating.';
-    case 'INVALID_ROLE_OUTPUT_COMBINATION':
-      return 'The selected role and output type cannot be used together.';
     case 'BYOK_AUTH_FAILED':
       return 'OpenRouter rejected the provided API key.';
     case 'BYOK_RATE_LIMITED':

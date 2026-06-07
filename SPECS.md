@@ -23,7 +23,7 @@ Developer Assistant gives users a better prompt-writing workflow without forcing
 
 Users can either:
 
-- connect their own supported AI account and pay their chosen provider directly
+- connect their own OpenRouter account and pay OpenRouter directly
 - subscribe to a managed hosted experience and use the author's shared access
 
 ### Commercial intent
@@ -46,17 +46,10 @@ Characteristics:
 
 - no login required
 - no subscription required
-- users save their own provider API key locally
-- users choose from supported providers approved by the platform
+- users save their own OpenRouter API key locally
 - users send optimization requests using their own external AI spend
 
-Supported provider families:
-
-- OpenAI
-- Claude
-- DeepSeek
-- Gemini
-- Grok
+Supported BYOK provider: OpenRouter. The extension uses the backend catalog entry for `openrouter/auto`.
 
 ### 3.2 Author Shared Key
 
@@ -89,8 +82,8 @@ The backend owns the access catalog for the popup.
 The extension should treat the backend catalog as the commercial source of truth for:
 
 - supported provider list
-- model choices shown for each provider
-- default model presented for each provider
+- model compatibility entry
+- default model
 - shared hosted offering label and price
 - server-side cache metadata for discovery data
 
@@ -100,13 +93,13 @@ The product should not hardcode model availability in the extension UI because p
 
 Business outcome:
 
-- users see provider/model choices that reflect the current supported market offer
-- the product can update default recommendations without waiting for a browser-store release
+- users see the current OpenRouter access offer
+- the product can update the default OpenRouter model without waiting for a browser-store release
 - pricing and discovery copy remain consistent across popup sessions
 
 ### Default model policy
 
-For each supported provider, the backend selects a default based on the latest stable public model listing from that provider's official documentation or reference pages.
+The backend defaults generation and extraction to `openrouter/auto`.
 
 Business rule:
 
@@ -142,7 +135,7 @@ If the extension cannot reach the backend, it should show a clear catalog loadin
 Expected user experience:
 
 - saved BYOK settings can still appear because they are user settings
-- provider/model catalog controls remain limited until the backend catalog loads
+- OpenRouter catalog controls remain limited until the backend catalog loads
 - hosted price and offering availability come from the backend, not client persistence
 - users can retry catalog loading when connectivity returns
 
@@ -262,8 +255,7 @@ The business promise is the same regardless of access mode:
 
 ## 10. Capture To Markdown
 
-Capture to Markdown is a second extension tab, positioned after `Generate` in
-the side rail.
+Capture to Markdown is a second extension tab, positioned after `Generate` in the side rail.
 
 ### User capability
 
@@ -271,24 +263,21 @@ Users can:
 
 - capture the visible active browser tab as an image
 - upload a PNG, JPEG, WebP, or PDF source
-- send the source to the backend extraction API
+- send the source to the backend extraction API, which uses OpenRouter multimodal chat completions
 - view the extracted Markdown in the Capture tab
 - copy or download the Markdown as `.md`
 
 ### Extraction behavior
 
-The feature converts source material into faithful Markdown. It must not create
-a role-specific brief, summarize the source, or store the output in Recent
-outputs. Recent outputs remain scoped to generated briefs.
+The feature converts source material into faithful Markdown. It must not create an agent-specific brief, summarize the source, or store original screenshot/file bytes in Recent outputs.
 
 ### Access behavior
 
-Capture to Markdown v1 supports OpenAI only.
+Capture to Markdown uses OpenRouter for BYOK and shared hosted access.
 
-- BYOK extraction requires OpenAI as the selected provider.
-- Non-OpenAI BYOK providers must show a clear unsupported-provider message.
-- Shared hosted extraction uses the backend OpenAI key and configured OpenAI
-  model when hosted access is active.
+- Images are sent as `image_url` data URLs.
+- PDFs are sent as `file.file_data` data URLs.
+- The backend defaults the OpenRouter PDF parser plugin to `cloudflare-ai`.
 
 ### Privacy and scope
 
@@ -301,9 +290,11 @@ Uploaded images and PDFs are sent to the backend for AI extraction. Sources over
 
 ### V1 limitations
 
-The first version does not support DOCX, PPTX, full-page capture, arbitrary
-desktop capture, local-only OCR, or saving captured Markdown into Recent
-outputs.
+The first version does not support DOCX, PPTX, full-page capture, arbitrary desktop capture, local-only OCR, or storing original captured bytes in Recent outputs.
+
+### Recent behavior
+
+Recent outputs are selectable. Selecting a generation output opens `Generate` and restores the saved agent type, context snapshot, and Markdown preview. Selecting a capture output opens `Capture` and restores the source label, warnings, and Markdown preview.
 
 The product should not frame Prompt Optimizer as locked to a single downstream agent type. It should support broader use cases such as:
 
@@ -370,7 +361,7 @@ Bad framing:
 
 ### Discovery trust promise
 
-- provider/model discovery should reflect curated backend support, not arbitrary frontend guesses
+- OpenRouter catalog discovery should reflect curated backend support, not arbitrary frontend guesses
 - frontend code should not persist provider catalog snapshots for offline discovery
 
 ---

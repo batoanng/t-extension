@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { byokProviders } from './access';
-
 export const extractionMimeTypes = [
   'application/pdf',
   'image/jpeg',
@@ -12,7 +10,6 @@ export const extractionMimeTypes = [
 export const extractionErrorCodes = [
   'AUTH_REQUIRED',
   'MISSING_BYOK_API_KEY',
-  'UNSUPPORTED_PROVIDER',
   'INVALID_REQUEST',
   'SOURCE_TOO_LARGE',
   'BYOK_AUTH_FAILED',
@@ -35,8 +32,6 @@ export const ExtractMarkdownRequestSchema = z
     dataBase64: z.string().trim().min(1),
     filename: z.string().trim().min(1).optional(),
     mimeType: z.enum(extractionMimeTypes),
-    model: z.string().trim().min(1).optional(),
-    provider: z.enum(byokProviders).optional(),
     source: z
       .object({
         title: z.string().trim().min(1).optional(),
@@ -108,8 +103,6 @@ export function getExtractionApiErrorMessage(
       return 'Please sign in to use shared hosted extraction.';
     case 'MISSING_BYOK_API_KEY':
       return 'An OpenRouter API key is required for BYOK extraction.';
-    case 'UNSUPPORTED_PROVIDER':
-      return 'Capture to Markdown uses OpenRouter in this version.';
     case 'INVALID_REQUEST':
       return 'Please provide a supported image or PDF.';
     case 'SOURCE_TOO_LARGE':

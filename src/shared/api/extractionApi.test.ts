@@ -87,8 +87,8 @@ describe('extractMarkdown', () => {
       createAxiosResponse(
         {
           error: {
-            code: 'UNSUPPORTED_PROVIDER',
-            message: 'Unsupported provider',
+            code: 'INVALID_REQUEST',
+            message: 'Invalid request',
           },
         },
         400,
@@ -108,7 +108,7 @@ describe('extractMarkdown', () => {
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<ExtractionApiError>>({
-        code: 'UNSUPPORTED_PROVIDER',
+        code: 'INVALID_REQUEST',
       }),
     );
   });
