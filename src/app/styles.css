@@ -706,7 +706,40 @@ button {
 
 .agent-order-controls {
   display: inline-flex;
+  align-items: center;
   gap: 6px;
+}
+
+.agent-drag-handle {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  place-items: center;
+  color: var(--text-soft);
+}
+
+.agent-drag-handle:active {
+  cursor: grabbing;
+}
+
+.agent-drag-handle:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.agent-drag-handle:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.agent-row-dragging {
+  border-color: var(--accent);
+  opacity: 0.72;
 }
 
 .sequence-step {

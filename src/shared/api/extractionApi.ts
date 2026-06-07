@@ -1,4 +1,5 @@
 import type { GenerationAccess } from '@/shared/model/access';
+import { env } from '@/shared/config';
 import {
   ExtractionApiError,
   ExtractionApiErrorResponseSchema,
@@ -10,42 +11,32 @@ import {
   isExtractionApiClientErrorCode,
 } from '@/shared/model/extraction';
 
+import { generationAccessHeaders } from './accessHeaders';
 import { isCanceledRequest, requestJson } from './httpClient';
 
 export interface ExtractMarkdownParams {
   access: GenerationAccess;
   payload: ExtractMarkdownRequest;
-  serverBaseUrl: string;
   signal?: AbortSignal;
 }
 
 export async function extractMarkdown({
   access,
   payload,
-  serverBaseUrl,
   signal,
 }: ExtractMarkdownParams): Promise<ExtractMarkdownResponse> {
   const request = ExtractMarkdownRequestSchema.parse({
     ...payload,
     credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
   });
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-  };
-
-  if (access.kind === 'byok') {
-    headers['x-byok-api-key'] = access.apiKey.trim();
-  } else {
-    headers.authorization = `Bearer ${access.accessToken}`;
-  }
 
   let response: Awaited<ReturnType<typeof requestJson<ExtractMarkdownResponse>>>;
 
   try {
     response = await requestJson<ExtractMarkdownResponse>({
-      baseUrl: serverBaseUrl,
+      baseUrl: env.serverBaseUrl,
       data: request,
-      headers,
+      headers: generationAccessHeaders(access),
       method: 'POST',
       pathname: '/api/v1/extractions',
       signal,

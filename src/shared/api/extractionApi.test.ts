@@ -59,7 +59,6 @@ describe('extractMarkdown', () => {
           provider: 'openrouter',
         },
         payload,
-        serverBaseUrl: 'http://localhost:3000',
       }),
     ).resolves.toEqual(
       expect.objectContaining({
@@ -104,7 +103,6 @@ describe('extractMarkdown', () => {
           provider: 'openrouter',
         },
         payload,
-        serverBaseUrl: 'http://localhost:3000',
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<ExtractionApiError>>({

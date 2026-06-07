@@ -71,6 +71,29 @@ function seedByokApiKey(apiKey = 'sk-test') {
   );
 }
 
+function createDragDataTransfer(): DataTransfer {
+  const data = new Map<string, string>();
+
+  return {
+    clearData: vi.fn(),
+    dropEffect: 'none',
+    effectAllowed: 'all',
+    files: [] as unknown as FileList,
+    getData: vi.fn((format: string) => data.get(format) ?? ''),
+    items: [] as unknown as DataTransferItemList,
+    setData: vi.fn((format: string, value: string) => {
+      data.set(format, value);
+    }),
+    types: [],
+  } as unknown as DataTransfer;
+}
+
+function getSequenceAgentLabels() {
+  return within(screen.getByLabelText('Sequence agents'))
+    .getAllByRole('checkbox')
+    .map((checkbox) => checkbox.closest('label')?.textContent ?? '');
+}
+
 function createPageSnapshot(input: {
   description: string;
   title: string;
@@ -651,11 +674,11 @@ describe('PopupApp', () => {
           confidence: 'high',
           createdAt: '2026-06-06T00:00:00.000Z',
           id: 'gen_step_1',
-          agentType: 'planner',
-          markdown: '# Planner output',
+          agentType: 'ci-expert',
+          markdown: '# CI output',
           missingInformation: [],
           questions: [],
-          title: 'Planner output',
+          title: 'CI output',
           warnings: [],
         }),
       )
@@ -664,11 +687,11 @@ describe('PopupApp', () => {
           confidence: 'high',
           createdAt: '2026-06-06T00:01:00.000Z',
           id: 'gen_step_2',
-          agentType: 'ci-expert',
-          markdown: '# CI output',
+          agentType: 'planner',
+          markdown: '# Planner output',
           missingInformation: [],
           questions: [],
-          title: 'CI output',
+          title: 'Planner output',
           warnings: [],
         }),
       );
@@ -683,16 +706,34 @@ describe('PopupApp', () => {
       },
     });
     fireEvent.click(screen.getByLabelText('CI Expert'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move CI Expert up' }));
     fireEvent.click(screen.getByRole('button', { name: 'Run sequence' }));
 
     await waitFor(() => {
       expect(
         screen.getByText('Sequence complete. Final output saved to Recent.'),
       ).toBeInTheDocument();
-      expect(screen.getByLabelText('CI Expert output')).toHaveValue(
-        '# CI output',
+      expect(screen.getByLabelText('Planner output')).toHaveValue(
+        '# Planner output',
       );
     });
+
+    expect(axios.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          agentType: 'ci-expert',
+        }),
+      }),
+    );
+    expect(axios.request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          agentType: 'planner',
+        }),
+      }),
+    );
 
     const storedOutputs = JSON.parse(
       localStorage.getItem('contextpackai_recent_outputs') ?? '[]',
@@ -701,8 +742,47 @@ describe('PopupApp', () => {
     expect(storedOutputs).toEqual([
       expect.objectContaining({
         id: 'gen_step_2',
-        markdown: '# CI output',
+        markdown: '# Planner output',
       }),
+    ]);
+  });
+
+  it('visibly reorders selected sequence agents with buttons and drag handles', async () => {
+    seedByokApiKey();
+    render(<PopupApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sequence' }));
+    fireEvent.click(screen.getByLabelText('CI Expert'));
+    fireEvent.click(screen.getByLabelText('Data Analyst'));
+
+    expect(getSequenceAgentLabels().slice(0, 3)).toEqual([
+      'Planner',
+      'CI Expert',
+      'Data Analyst',
+    ]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move CI Expert up' }));
+
+    expect(getSequenceAgentLabels().slice(0, 3)).toEqual([
+      'CI Expert',
+      'Planner',
+      'Data Analyst',
+    ]);
+
+    const dataTransfer = createDragDataTransfer();
+    const dragHandle = screen.getByLabelText('Drag Data Analyst');
+    const targetRow = screen
+      .getByLabelText('CI Expert')
+      .closest('.agent-row') as HTMLElement;
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragOver(targetRow, { dataTransfer });
+    fireEvent.drop(targetRow, { dataTransfer });
+
+    expect(getSequenceAgentLabels().slice(0, 3)).toEqual([
+      'Data Analyst',
+      'CI Expert',
+      'Planner',
     ]);
   });
 

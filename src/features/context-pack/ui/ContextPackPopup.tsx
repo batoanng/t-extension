@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { useCaptureMarkdown } from '@/features/capture/model/useCaptureMarkdown';
-import { env } from '@/shared/config';
 import {
   getLastAgentType,
   setLastAgentType,
@@ -235,7 +234,6 @@ export function ContextPackPopup({
           tone: 'detailed',
         },
       },
-      serverBaseUrl: env.serverBaseUrl,
     });
 
     if (generationResult.ok) {
@@ -300,7 +298,6 @@ export function ContextPackPopup({
             url: activeTab?.url,
           },
         },
-        serverBaseUrl: env.serverBaseUrl,
       });
 
       if (extractionResult) {

@@ -1,4 +1,5 @@
 import type { GenerationAccess } from '@/shared/model/access';
+import { env } from '@/shared/config';
 import {
   CreateVisualizationRequestSchema,
   CreateVisualizationResponseSchema,
@@ -10,34 +11,24 @@ import {
   isVisualizationApiClientErrorCode,
 } from '@/shared/model/visualization';
 
+import { generationAccessHeaders } from './accessHeaders';
 import { isCanceledRequest, requestJson } from './httpClient';
 
 export interface CreateVisualizationParams {
   access: GenerationAccess;
   payload: CreateVisualizationRequest;
-  serverBaseUrl: string;
   signal?: AbortSignal;
 }
 
 export async function createVisualization({
   access,
   payload,
-  serverBaseUrl,
   signal,
 }: CreateVisualizationParams): Promise<CreateVisualizationResponse> {
   const request = CreateVisualizationRequestSchema.parse({
     ...payload,
     credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
   });
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-  };
-
-  if (access.kind === 'byok') {
-    headers['x-byok-api-key'] = access.apiKey.trim();
-  } else {
-    headers.authorization = `Bearer ${access.accessToken}`;
-  }
 
   let response: Awaited<
     ReturnType<typeof requestJson<CreateVisualizationResponse>>
@@ -45,9 +36,9 @@ export async function createVisualization({
 
   try {
     response = await requestJson<CreateVisualizationResponse>({
-      baseUrl: serverBaseUrl,
+      baseUrl: env.serverBaseUrl,
       data: request,
-      headers,
+      headers: generationAccessHeaders(access),
       method: 'POST',
       pathname: '/api/v1/visualizations',
       signal,

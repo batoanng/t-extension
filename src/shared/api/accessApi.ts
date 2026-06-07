@@ -1,3 +1,4 @@
+import { env } from '@/shared/config';
 import type {
   AccessCatalogResponse,
   MagicLinkStatus,
@@ -33,7 +34,6 @@ interface AuthResponse {
 export const ACCESS_CATALOG_MESSAGE_TYPE = 'access-catalog:get';
 
 export interface AccessCatalogMessageRequest {
-  serverBaseUrl: string;
   type: typeof ACCESS_CATALOG_MESSAGE_TYPE;
 }
 
@@ -60,9 +60,9 @@ function toStoredAuthSession(response: AuthResponse): StoredAuthSession {
   };
 }
 
-export async function fetchAccessCatalog(serverBaseUrl: string) {
+export async function fetchAccessCatalog() {
   const response = await requestJson<AccessCatalogResponse>({
-    baseUrl: serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     pathname: '/api/v1/access/catalog',
   });
 
@@ -73,11 +73,9 @@ export async function fetchAccessCatalog(serverBaseUrl: string) {
   return AccessCatalogResponseSchema.parse(response.data);
 }
 
-export async function requestAccessCatalogFromBackground(
-  serverBaseUrl: string,
-): Promise<AccessCatalogMessageResponse> {
+export async function requestAccessCatalogFromBackground(): Promise<AccessCatalogMessageResponse> {
   if (!globalThis.chrome?.runtime?.sendMessage) {
-    const catalog = await fetchAccessCatalog(serverBaseUrl);
+    const catalog = await fetchAccessCatalog();
 
     return {
       catalog,
@@ -88,9 +86,11 @@ export async function requestAccessCatalogFromBackground(
 
   return await new Promise<AccessCatalogMessageResponse>((resolve) => {
     try {
-      chrome.runtime.sendMessage<AccessCatalogMessageRequest, AccessCatalogMessageResponse>(
+      chrome.runtime.sendMessage<
+        AccessCatalogMessageRequest,
+        AccessCatalogMessageResponse
+      >(
         {
-          serverBaseUrl,
           type: ACCESS_CATALOG_MESSAGE_TYPE,
         },
         (response) => {
@@ -124,12 +124,9 @@ export async function requestAccessCatalogFromBackground(
   });
 }
 
-export async function requestMagicLink(input: {
-  email: string;
-  serverBaseUrl: string;
-}) {
+export async function requestMagicLink(input: { email: string }) {
   const response = await requestJson<RequestMagicLinkResponse>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     data: {
       email: input.email,
     },
@@ -147,12 +144,9 @@ export async function requestMagicLink(input: {
   return response.data;
 }
 
-export async function fetchMagicLinkStatus(input: {
-  requestId: string;
-  serverBaseUrl: string;
-}) {
+export async function fetchMagicLinkStatus(input: { requestId: string }) {
   const response = await requestJson<MagicLinkStatusResponse>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     params: {
       requestId: input.requestId,
     },
@@ -171,12 +165,9 @@ export async function fetchMagicLinkStatus(input: {
   };
 }
 
-export async function refreshAuthSession(input: {
-  refreshToken: string;
-  serverBaseUrl: string;
-}) {
+export async function refreshAuthSession(input: { refreshToken: string }) {
   const response = await requestJson<AuthResponse>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     data: {
       refreshToken: input.refreshToken,
     },
@@ -194,12 +185,9 @@ export async function refreshAuthSession(input: {
   return toStoredAuthSession(response.data);
 }
 
-export async function logout(input: {
-  refreshToken: string;
-  serverBaseUrl: string;
-}) {
+export async function logout(input: { refreshToken: string }) {
   await requestJson({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     data: {
       refreshToken: input.refreshToken,
     },
@@ -211,12 +199,9 @@ export async function logout(input: {
   });
 }
 
-export async function fetchMySubscription(input: {
-  accessToken: string;
-  serverBaseUrl: string;
-}) {
+export async function fetchMySubscription(input: { accessToken: string }) {
   const response = await requestJson<SubscriptionStatus>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     headers: authHeaders(input.accessToken),
     pathname: '/api/v1/subscription/me',
   });
@@ -228,12 +213,9 @@ export async function fetchMySubscription(input: {
   return response.data;
 }
 
-export async function createCheckoutSession(input: {
-  accessToken: string;
-  serverBaseUrl: string;
-}) {
+export async function createCheckoutSession(input: { accessToken: string }) {
   const response = await requestJson<{ url: string }>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     headers: authHeaders(input.accessToken),
     method: 'POST',
     pathname: '/api/v1/subscription/checkout-session',
@@ -248,10 +230,9 @@ export async function createCheckoutSession(input: {
 
 export async function createCustomerPortalSession(input: {
   accessToken: string;
-  serverBaseUrl: string;
 }) {
   const response = await requestJson<{ url: string }>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     headers: authHeaders(input.accessToken),
     method: 'POST',
     pathname: '/api/v1/subscription/customer-portal',

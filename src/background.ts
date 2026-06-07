@@ -4,37 +4,12 @@ import {
   type AccessCatalogMessageRequest,
   type AccessCatalogMessageResponse,
   type ContextPackActionClickedMessage,
+  fetchAccessCatalog,
 } from '@/shared/api';
-import { joinUrl } from '@/shared/api/httpClient';
-import {
-  type AccessCatalogResponse,
-  AccessCatalogResponseSchema,
-} from '@/shared/model/access';
 
-async function fetchCatalogFromNetwork(
-  serverBaseUrl: string,
-): Promise<AccessCatalogResponse> {
-  const response = await fetch(
-    joinUrl(serverBaseUrl, '/api/v1/access/catalog'),
-    {
-      headers: {
-        accept: 'application/json',
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error('Unable to load access catalog.');
-  }
-
-  return AccessCatalogResponseSchema.parse(await response.json());
-}
-
-async function handleAccessCatalogMessage(
-  serverBaseUrl: string,
-): Promise<AccessCatalogMessageResponse> {
+async function handleAccessCatalogMessage(): Promise<AccessCatalogMessageResponse> {
   try {
-    const catalog = await fetchCatalogFromNetwork(serverBaseUrl);
+    const catalog = await fetchAccessCatalog();
 
     return {
       catalog,
@@ -58,9 +33,7 @@ if (globalThis.chrome?.runtime?.onMessage) {
       return false;
     }
 
-    void handleAccessCatalogMessage(typedMessage.serverBaseUrl).then(
-      sendResponse,
-    );
+    void handleAccessCatalogMessage().then(sendResponse);
 
     return true;
   });

@@ -1,3 +1,5 @@
+import { env } from '@/shared/config';
+
 import { requestJson } from './httpClient';
 
 interface DonationCheckoutSessionResponse {
@@ -6,10 +8,9 @@ interface DonationCheckoutSessionResponse {
 
 export async function createDonationCheckoutSession(input: {
   amountAudCents: number;
-  serverBaseUrl: string;
 }) {
   const response = await requestJson<DonationCheckoutSessionResponse>({
-    baseUrl: input.serverBaseUrl,
+    baseUrl: env.serverBaseUrl,
     data: {
       amountAudCents: input.amountAudCents,
     },

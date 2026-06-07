@@ -1,4 +1,5 @@
 import type { GenerationAccess } from '@/shared/model/access';
+import { env } from '@/shared/config';
 import {
   ApiErrorResponseSchema,
   type GenerateBriefRequest,
@@ -10,17 +11,16 @@ import {
   isGenerationErrorCode,
 } from '@/shared/model/contextPack';
 
+import { generationAccessHeaders } from './accessHeaders';
 import { isCanceledRequest, requestJson } from './httpClient';
 
 export interface GenerateBriefParams {
-  serverBaseUrl: string;
   access: GenerationAccess;
   payload: GenerateBriefRequest;
   signal?: AbortSignal;
 }
 
 export async function generateBrief({
-  serverBaseUrl,
   access,
   payload,
   signal,
@@ -29,23 +29,14 @@ export async function generateBrief({
     ...payload,
     credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
   });
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-  };
-
-  if (access.kind === 'byok') {
-    headers['x-byok-api-key'] = access.apiKey.trim();
-  } else {
-    headers.authorization = `Bearer ${access.accessToken}`;
-  }
 
   let response: Awaited<ReturnType<typeof requestJson<GenerateBriefResponse>>>;
 
   try {
     response = await requestJson<GenerateBriefResponse>({
-      baseUrl: serverBaseUrl,
+      baseUrl: env.serverBaseUrl,
       data: request,
-      headers,
+      headers: generationAccessHeaders(access),
       method: 'POST',
       pathname: '/api/v1/generations',
       signal,

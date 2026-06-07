@@ -1,9 +1,8 @@
-import { ArrowDown, ArrowUp, Play } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, GripVertical, Play } from 'lucide-react';
+import { type DragEvent, useMemo, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { generateBrief } from '@/shared/api';
-import { env } from '@/shared/config';
 import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import {
   getAccessGate,
@@ -34,6 +33,10 @@ function getAgentLabel(agentType: AgentType): string {
   );
 }
 
+function getAgentOption(agentType: AgentType) {
+  return agentTypeOptions.find((option) => option.value === agentType);
+}
+
 function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   const nextItems = [...items];
   const [item] = nextItems.splice(fromIndex, 1);
@@ -49,6 +52,7 @@ export function SequencePanel() {
   const [selectedAgents, setSelectedAgents] = useState<AgentType[]>([
     'planner',
   ]);
+  const [draggedAgent, setDraggedAgent] = useState<AgentType | null>(null);
   const [steps, setSteps] = useState<SequenceStep[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
@@ -87,6 +91,61 @@ export function SequencePanel() {
 
       return moveItem(currentAgents, currentIndex, nextIndex);
     });
+  }
+
+  function moveAgentToIndex(agentType: AgentType, nextIndex: number) {
+    setSelectedAgents((currentAgents) => {
+      const currentIndex = currentAgents.indexOf(agentType);
+
+      if (
+        currentIndex < 0 ||
+        nextIndex < 0 ||
+        nextIndex >= currentAgents.length ||
+        currentIndex === nextIndex
+      ) {
+        return currentAgents;
+      }
+
+      return moveItem(currentAgents, currentIndex, nextIndex);
+    });
+  }
+
+  function handleAgentDragStart(
+    event: DragEvent<HTMLButtonElement>,
+    agentType: AgentType,
+  ) {
+    if (status === 'loading') {
+      event.preventDefault();
+      return;
+    }
+
+    setDraggedAgent(agentType);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', agentType);
+  }
+
+  function handleAgentDragOver(event: DragEvent<HTMLDivElement>) {
+    if (draggedAgent && status !== 'loading') {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  function handleAgentDrop(
+    event: DragEvent<HTMLDivElement>,
+    targetAgentType: AgentType,
+  ) {
+    event.preventDefault();
+
+    const sourceAgentType =
+      draggedAgent ?? (event.dataTransfer.getData('text/plain') as AgentType);
+    const nextIndex = selectedAgents.indexOf(targetAgentType);
+
+    if (sourceAgentType) {
+      moveAgentToIndex(sourceAgentType, nextIndex);
+    }
+
+    setDraggedAgent(null);
   }
 
   async function handleRunSequence() {
@@ -140,7 +199,6 @@ export function SequencePanel() {
               tone: 'detailed',
             },
           },
-          serverBaseUrl: env.serverBaseUrl,
         });
 
         currentText = result.markdown;
@@ -245,12 +303,39 @@ export function SequencePanel() {
         <div className="field">
           <span className="field-label">Agents</span>
           <div className="agent-list" aria-label="Sequence agents">
-            {agentTypeOptions.map((option) => {
+            {[
+              ...selectedAgents
+                .map((agentType) => getAgentOption(agentType))
+                .filter((option): option is (typeof agentTypeOptions)[number] =>
+                  Boolean(option),
+                ),
+              ...agentTypeOptions.filter(
+                (option) => !selectedAgents.includes(option.value),
+              ),
+            ].map((option) => {
               const selectedIndex = selectedAgents.indexOf(option.value);
               const isSelected = selectedIndex >= 0;
 
               return (
-                <div className="agent-row" key={option.value}>
+                <div
+                  className={
+                    isSelected && draggedAgent === option.value
+                      ? 'agent-row agent-row-dragging'
+                      : 'agent-row'
+                  }
+                  key={option.value}
+                  onDragEnd={() => {
+                    setDraggedAgent(null);
+                  }}
+                  onDragOver={isSelected ? handleAgentDragOver : undefined}
+                  onDrop={
+                    isSelected
+                      ? (event) => {
+                          handleAgentDrop(event, option.value);
+                        }
+                      : undefined
+                  }
+                >
                   <label className="checkbox-row">
                     <input
                       checked={isSelected}
@@ -264,6 +349,19 @@ export function SequencePanel() {
                   </label>
                   {isSelected ? (
                     <span className="agent-order-controls">
+                      <button
+                        aria-label={`Drag ${option.label}`}
+                        className="agent-drag-handle"
+                        disabled={status === 'loading'}
+                        draggable={status !== 'loading'}
+                        onDragStart={(event) => {
+                          handleAgentDragStart(event, option.value);
+                        }}
+                        title={`Drag ${option.label}`}
+                        type="button"
+                      >
+                        <GripVertical size={15} strokeWidth={2.2} />
+                      </button>
                       <button
                         aria-label={`Move ${option.label} up`}
                         className="icon-button"

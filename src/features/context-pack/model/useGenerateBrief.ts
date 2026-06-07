@@ -110,7 +110,6 @@ function reducer(
 interface RunGenerateBriefParams {
   access: GenerationAccess;
   payload: GenerateBriefRequest;
-  serverBaseUrl: string;
 }
 
 type RunGenerateBriefResult =
@@ -176,7 +175,6 @@ export function useGenerateBrief() {
     async runGenerateBrief({
       access,
       payload,
-      serverBaseUrl,
     }: RunGenerateBriefParams): Promise<RunGenerateBriefResult> {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -190,7 +188,6 @@ export function useGenerateBrief() {
           access,
           payload,
           signal: controller.signal,
-          serverBaseUrl,
         });
         const parsedContext = ExtractedContextSchema.parse(payload.context);
         const recentOutputs = await addRecentContextPackOutput({

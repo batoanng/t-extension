@@ -25,7 +25,6 @@ function getInitialErrorMessage(error: unknown): string {
 interface RunCaptureMarkdownParams {
   access: GenerationAccess;
   payload: ExtractMarkdownRequest;
-  serverBaseUrl: string;
 }
 
 export function useCaptureMarkdown() {
@@ -62,7 +61,7 @@ export function useCaptureMarkdown() {
   }, []);
 
   const runCaptureMarkdown = useCallback(
-    async ({ access, payload, serverBaseUrl }: RunCaptureMarkdownParams) => {
+    async ({ access, payload }: RunCaptureMarkdownParams) => {
       const normalizedPayload = ExtractMarkdownRequestSchema.parse(payload);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -83,7 +82,6 @@ export function useCaptureMarkdown() {
         const nextResult = await extractMarkdownMutation.mutateAsync({
           access,
           payload: normalizedPayload,
-          serverBaseUrl,
           signal: controller.signal,
         });
 

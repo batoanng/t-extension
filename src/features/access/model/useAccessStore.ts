@@ -10,7 +10,6 @@ import {
   requestAccessCatalogFromBackground,
   requestMagicLink,
 } from '@/shared/api';
-import { env } from '@/shared/config';
 import {
   getStoredJson,
   getStoredString,
@@ -293,9 +292,7 @@ async function refreshAccessCatalog() {
   }));
 
   refreshCatalogPromise = (async () => {
-    const response = await requestAccessCatalogFromBackground(
-      env.serverBaseUrl,
-    ).catch(() => ({
+    const response = await requestAccessCatalogFromBackground().catch(() => ({
       catalog: null,
       errorMessage: 'Unable to load access catalog.',
       ok: false,
@@ -409,7 +406,6 @@ async function ensureFreshSession() {
 
   refreshPromise = refreshAuthSession({
     refreshToken: currentAuthSession.refreshToken,
-    serverBaseUrl: env.serverBaseUrl,
   })
     .then(async (session) => {
       await persistAuthSession(session);
@@ -476,7 +472,6 @@ async function refreshSubscriptionStatus() {
   try {
     const subscription = await fetchMySubscription({
       accessToken: session.accessToken,
-      serverBaseUrl: env.serverBaseUrl,
     });
     const nextState = toSubscriptionState(subscription);
 
@@ -516,7 +511,6 @@ async function pollMagicLinkStatus(requestId: string, email: string) {
   try {
     const result = await fetchMagicLinkStatus({
       requestId,
-      serverBaseUrl: env.serverBaseUrl,
     });
 
     if (result.status === MagicLinkStatus.Pending) {
@@ -654,10 +648,7 @@ async function sendMagicLink(email: string) {
   }));
 
   try {
-    const response = await requestMagicLink({
-      email,
-      serverBaseUrl: env.serverBaseUrl,
-    });
+    const response = await requestMagicLink({ email });
 
     updateSnapshot((snapshot) => ({
       ...snapshot,
@@ -691,7 +682,6 @@ async function signOut() {
   if (session) {
     await logout({
       refreshToken: session.refreshToken,
-      serverBaseUrl: env.serverBaseUrl,
     }).catch(() => undefined);
   }
 
@@ -762,7 +752,6 @@ async function openCheckout() {
 
   const result = await createCheckoutSession({
     accessToken: session.accessToken,
-    serverBaseUrl: env.serverBaseUrl,
   });
 
   globalThis.open?.(result.url, '_blank', 'noopener,noreferrer');
@@ -777,7 +766,6 @@ async function openCustomerPortal() {
 
   const result = await createCustomerPortalSession({
     accessToken: session.accessToken,
-    serverBaseUrl: env.serverBaseUrl,
   });
 
   globalThis.open?.(result.url, '_blank', 'noopener,noreferrer');

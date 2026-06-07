@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { useCreateVisualizationMutation } from '@/shared/api';
-import { env } from '@/shared/config';
 import { getRecentContextPackOutputs } from '@/shared/lib/contextPackStorage';
 import {
   getAccessGate,
@@ -165,7 +164,6 @@ export function VisualizePanel() {
           diagramType,
           items: selectedOutputs.map(toVisualizationItem),
         },
-        serverBaseUrl: env.serverBaseUrl,
       });
 
       accessStore.clearAccessIssue();
