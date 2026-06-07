@@ -10,7 +10,7 @@ export function InlineMessage({
   tone = 'neutral',
 }: InlineMessageProps) {
   return (
-    <div className="inline-message" data-tone={tone} role="status">
+    <div className="inline-message" data-tone={tone} role={tone === 'error' ? 'alert' : 'status'}>
       {children}
     </div>
   );

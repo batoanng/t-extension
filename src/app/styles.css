@@ -14,8 +14,8 @@
   --accent: #57c7b8;
   --accent-strong: #88eadc;
   --accent-soft: rgba(87, 199, 184, 0.16);
-  --danger: #ffb86b;
-  --danger-soft: rgba(255, 184, 107, 0.14);
+  --danger: #ff5c5c;
+  --danger-soft: rgba(255, 92, 92, 0.14);
   --success: #90e7ac;
   --success-soft: rgba(144, 231, 172, 0.14);
   --shadow-md: 0 14px 30px rgba(0, 0, 0, 0.24);
@@ -548,7 +548,7 @@ button {
 }
 
 .inline-message[data-tone='error'] {
-  border-color: rgba(255, 184, 107, 0.24);
+  border-color: rgba(255, 92, 92, 0.32);
   background: var(--danger-soft);
   color: var(--danger);
 }

@@ -55,7 +55,7 @@ export function AccessPanel({ onAccessConfigured }: AccessPanelProps) {
             Generation Access
           </h2>
           <p className="panel-subtitle">
-            Keep your own model access local, or use the author&apos;s shared
+            Keep your own OpenRouter access local, or use the author&apos;s shared
             hosted key with a subscription.
           </p>
         </div>
@@ -113,7 +113,6 @@ export function AccessPanel({ onAccessConfigured }: AccessPanelProps) {
 
             <ApiKeySection
               byokConfig={byok}
-              catalog={catalog.data}
               catalogStatus={catalog.status}
               isReady={ready}
               onRemoveByokConfig={removeByokConfig}

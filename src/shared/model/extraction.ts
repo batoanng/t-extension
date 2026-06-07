@@ -58,25 +58,6 @@ export const ExtractMarkdownRequestSchema = z
       });
     }
 
-    if (value.credentialMode !== 'byok') {
-      return;
-    }
-
-    if (value.provider !== 'openai') {
-      context.addIssue({
-        code: 'custom',
-        message: 'Capture to Markdown supports OpenAI BYOK only.',
-        path: ['provider'],
-      });
-    }
-
-    if (!value.model) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Model is required for BYOK extraction.',
-        path: ['model'],
-      });
-    }
   });
 
 export const ExtractMarkdownResponseSchema = z.object({
@@ -126,19 +107,19 @@ export function getExtractionApiErrorMessage(
     case 'AUTH_REQUIRED':
       return 'Please sign in to use shared hosted extraction.';
     case 'MISSING_BYOK_API_KEY':
-      return 'An OpenAI API key is required for BYOK extraction.';
+      return 'An OpenRouter API key is required for BYOK extraction.';
     case 'UNSUPPORTED_PROVIDER':
-      return 'Capture to Markdown supports OpenAI only in this version.';
+      return 'Capture to Markdown uses OpenRouter in this version.';
     case 'INVALID_REQUEST':
       return 'Please provide a supported image or PDF.';
     case 'SOURCE_TOO_LARGE':
       return 'The selected source is too large. Use an image or PDF under 10 MB.';
     case 'BYOK_AUTH_FAILED':
-      return 'OpenAI rejected the provided API key.';
+      return 'OpenRouter rejected the provided API key.';
     case 'BYOK_RATE_LIMITED':
-      return 'OpenAI rate limit was reached. Please wait and try again.';
+      return 'OpenRouter rate limit was reached. Please wait and try again.';
     case 'BYOK_REQUEST_FAILED':
-      return 'OpenAI could not extract Markdown from this source.';
+      return 'OpenRouter could not extract Markdown from this source.';
     case 'SUBSCRIPTION_REQUIRED':
       return 'An active shared hosted access subscription is required.';
     case 'SUBSCRIPTION_INACTIVE':

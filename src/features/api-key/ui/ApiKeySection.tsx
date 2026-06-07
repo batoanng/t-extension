@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import {
-  getAccessCatalogModelOptions,
-  getAccessCatalogProviderOptions,
   getByokProviderLabel,
   getProviderApiKeyHint,
-  type AccessCatalogResponse,
   type StoredByokConfig,
 } from '@/shared/model/access';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
 interface ApiKeySectionProps {
   byokConfig: StoredByokConfig;
-  catalog: AccessCatalogResponse | null;
   catalogStatus: 'idle' | 'loading' | 'ready' | 'error';
   isReady: boolean;
   onSaveByokConfig: (config: StoredByokConfig) => Promise<void>;
@@ -29,7 +25,6 @@ function createDraft(config: StoredByokConfig): StoredByokConfig {
 
 export function ApiKeySection({
   byokConfig,
-  catalog,
   catalogStatus,
   isReady,
   onSaveByokConfig,
@@ -52,10 +47,6 @@ export function ApiKeySection({
 
   const hasApiKey = Boolean(byokConfig.apiKey);
   const showEditor = !hasApiKey || isEditing;
-  const providerOptions = getAccessCatalogProviderOptions(catalog);
-  const modelOptions = getAccessCatalogModelOptions(catalog, draftConfig.provider);
-  const resolvedModel = draftConfig.selectedModel.trim();
-
   function resetDraft(config: StoredByokConfig) {
     setDraftConfig(createDraft(config));
     setErrorMessage(null);
@@ -66,11 +57,6 @@ export function ApiKeySection({
 
     if (trimmedApiKey.length === 0) {
       setErrorMessage('Please enter an API key.');
-      return;
-    }
-
-    if (resolvedModel.length === 0) {
-      setErrorMessage('Please choose a model.');
       return;
     }
 
@@ -117,106 +103,39 @@ export function ApiKeySection({
         <InlineMessage>Loading saved access settings...</InlineMessage>
       ) : null}
 
-      {catalogStatus === 'loading' && !catalog ? (
+      {catalogStatus === 'loading' ? (
         <InlineMessage>Loading the latest provider catalog...</InlineMessage>
       ) : null}
 
       {showEditor ? (
-        <>
-          <div className="selector-grid">
-            <div className="field">
-              <label className="field-label" htmlFor="byok-provider">
-                Provider
-              </label>
-              <select
-                className="select-input"
-                disabled={!isReady || isSaving || isRemoving}
-                id="byok-provider"
-                onChange={(event) => {
-                  const provider = event.target.value as StoredByokConfig['provider'];
-                  const nextModels = getAccessCatalogModelOptions(catalog, provider);
-
-                  setDraftConfig((current) => ({
-                    ...current,
-                    provider,
-                    selectedModel: nextModels[0]?.id ?? '',
-                  }));
-                  setErrorMessage(null);
-                }}
-                value={draftConfig.provider}
-              >
-                {providerOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field">
-              <label className="field-label" htmlFor="byok-model">
-                Model
-              </label>
-              <select
-                className="select-input"
-                disabled={
-                  !isReady || isSaving || isRemoving || modelOptions.length === 0
-                }
-                id="byok-model"
-                onChange={(event) => {
-                  setDraftConfig((current) => ({
-                    ...current,
-                    selectedModel: event.target.value,
-                  }));
-                  setErrorMessage(null);
-                }}
-                value={draftConfig.selectedModel}
-              >
-                {modelOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="field">
-            <label className="field-label" htmlFor="byok-api-key">
-              API key
-            </label>
-            <input
-              autoComplete="off"
-              className="text-input"
-              disabled={!isReady || isSaving || isRemoving}
-              id="byok-api-key"
-              onChange={(event) => {
-                setDraftConfig((current) => ({
-                  ...current,
-                  apiKey: event.target.value,
-                }));
-                setErrorMessage(null);
-              }}
-              placeholder="Paste your API key"
-              spellCheck={false}
-              type="password"
-              value={draftConfig.apiKey ?? ''}
-            />
-          </div>
-        </>
+        <div className="field">
+          <label className="field-label" htmlFor="byok-api-key">
+            OpenRouter API key
+          </label>
+          <input
+            autoComplete="off"
+            className="text-input"
+            disabled={!isReady || isSaving || isRemoving}
+            id="byok-api-key"
+            onChange={(event) => {
+              setDraftConfig((current) => ({
+                ...current,
+                apiKey: event.target.value,
+              }));
+              setErrorMessage(null);
+            }}
+            placeholder="Paste your OpenRouter API key"
+            spellCheck={false}
+            type="password"
+            value={draftConfig.apiKey ?? ''}
+          />
+        </div>
       ) : (
         <>
-          <div className="selector-grid">
-            <div className="field">
-              <span className="field-label">Provider</span>
-              <div className="masked-value">
-                {getByokProviderLabel(byokConfig.provider)}
-              </div>
-            </div>
-
-            <div className="field">
-              <span className="field-label">Model</span>
-              <div className="masked-value">{byokConfig.selectedModel}</div>
+          <div className="field">
+            <span className="field-label">Provider</span>
+            <div className="masked-value">
+              {getByokProviderLabel(byokConfig.provider)}
             </div>
           </div>
 
@@ -247,8 +166,7 @@ export function ApiKeySection({
               !isReady ||
               isSaving ||
               isRemoving ||
-              !draftConfig.apiKey?.trim() ||
-              resolvedModel.length === 0
+              !draftConfig.apiKey?.trim()
             }
             onClick={handleSaveClick}
             type="button"

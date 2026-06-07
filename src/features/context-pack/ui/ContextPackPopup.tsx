@@ -3,23 +3,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { env } from '@/shared/config';
 import {
-  getLastTargetRole,
+  getLastAgentType,
   getRecentContextPackOutputs,
-  setLastTargetRole,
+  setLastAgentType,
 } from '@/shared/lib/contextPackStorage';
 import { downloadMarkdown } from '@/shared/lib/markdownDownload';
 import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import {
-  DEFAULT_OUTPUT_TYPE,
+  DEFAULT_AGENT_TYPE,
+  type AgentType,
   type ExtractedContext,
-  type OutputType,
-  type TargetRole,
+  type RecentGenerationOutput,
+  agentTypeOptions,
   getContextValidationMessage,
-  getDefaultOutputTypeForRole,
   getSourceTypeLabel,
-  isOutputTypeValidForRole,
-  outputTypeOptions,
-  targetRoleOptions,
 } from '@/shared/model/contextPack';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
@@ -73,20 +70,21 @@ function getContextPreview(context: ExtractedContext): string {
 }
 
 interface ContextPackPopupProps {
-  activePanel: 'generate' | 'recent';
+  activePanel: 'generate';
   extractionRequestId?: number;
+  restoredOutput?: RecentGenerationOutput | null;
 }
 
 export function ContextPackPopup({
   activePanel,
   extractionRequestId = 0,
+  restoredOutput = null,
 }: ContextPackPopupProps) {
   const [context, setContext] = useState<ExtractedContext>(
     manualContextTemplate,
   );
   const [manualContext, setManualContext] = useState('');
-  const [targetRole, setTargetRole] = useState<TargetRole>('developer');
-  const [outputType, setOutputType] = useState<OutputType>(DEFAULT_OUTPUT_TYPE);
+  const [agentType, setAgentType] = useState<AgentType>(DEFAULT_AGENT_TYPE);
   const [extractStatus, setExtractStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -99,7 +97,7 @@ export function ContextPackPopup({
     copyStatus,
     errorMessage,
     loadRecentOutputs,
-    recentOutputs,
+    restoreGenerationOutput,
     result,
     runGenerateBrief,
     status,
@@ -151,16 +149,16 @@ export function ContextPackPopup({
     let cancelled = false;
 
     void Promise.all([
-      getLastTargetRole(),
+      getLastAgentType(),
       getRecentContextPackOutputs(),
       refreshContext(),
     ])
-      .then(([storedRole, storedRecentOutputs]) => {
+      .then(([storedAgentType, storedRecentOutputs]) => {
         if (cancelled) {
           return;
         }
 
-        setTargetRole(storedRole);
+        setAgentType(storedAgentType);
         loadRecentOutputs(storedRecentOutputs);
       })
       .catch(() => {
@@ -180,6 +178,20 @@ export function ContextPackPopup({
   }, [loadRecentOutputs, refreshContext]);
 
   useEffect(() => {
+    if (!restoredOutput) {
+      return;
+    }
+
+    setAgentType(restoredOutput.agentType);
+    setContext(restoredOutput.context);
+    setManualContext(restoredOutput.context.description ?? '');
+    setExtractStatus('success');
+    setExtractErrorMessage(null);
+    restoreGenerationOutput(restoredOutput);
+    void setLastAgentType(restoredOutput.agentType);
+  }, [restoreGenerationOutput, restoredOutput]);
+
+  useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
       return;
@@ -197,7 +209,7 @@ export function ContextPackPopup({
       return;
     }
 
-    await setLastTargetRole(targetRole);
+    await setLastAgentType(agentType);
     const access = await accessStore.prepareGenerationAccess();
 
     if (!access) {
@@ -209,7 +221,7 @@ export function ContextPackPopup({
       payload: {
         context,
         credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
-        model: access.kind === 'byok' ? access.model : undefined,
+        agentType,
         options: {
           includeComments: true,
           includeLinkedItems: true,
@@ -219,9 +231,6 @@ export function ContextPackPopup({
           outputFormat: 'markdown',
           tone: 'detailed',
         },
-        outputType,
-        provider: access.kind === 'byok' ? access.provider : undefined,
-        targetRole,
       },
       serverBaseUrl: env.serverBaseUrl,
     });
@@ -246,45 +255,6 @@ export function ContextPackPopup({
     await refreshContext();
   }
 
-  if (activePanel === 'recent') {
-    return (
-      <section className="panel recent-panel" aria-labelledby="recent-title">
-        <div className="panel-header">
-          <div>
-            <h2 className="panel-title" id="recent-title">
-              Recent outputs
-            </h2>
-            <p className="panel-subtitle">
-              Reuse markdown briefs generated in this browser.
-            </p>
-          </div>
-        </div>
-
-        {recentOutputs.length > 0 ? (
-          <div className="recent-output-list" aria-label="Recent outputs">
-            {recentOutputs.map((output) => (
-              <button
-                className="recent-output-button"
-                key={output.id}
-                onClick={() => {
-                  void navigator.clipboard.writeText(output.markdown);
-                }}
-                type="button"
-              >
-                <span>{output.title}</span>
-                <small>{output.sourceTitle}</small>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <InlineMessage>
-            Generated briefs will appear here after your first successful run.
-          </InlineMessage>
-        )}
-      </section>
-    );
-  }
-
   return (
     <section
       className="panel context-panel"
@@ -296,7 +266,7 @@ export function ContextPackPopup({
             ContextPackAI
           </h2>
           <p className="panel-subtitle">
-            Turn the current work item into a role-specific markdown brief.
+            Turn the current work item into an agent-specific markdown brief.
           </p>
         </div>
       </div>
@@ -324,51 +294,25 @@ export function ContextPackPopup({
 
         <div className="selector-grid">
           <div className="field">
-            <label className="field-label" htmlFor="target-role">
-              Target role
+            <label className="field-label" htmlFor="agent-type">
+              Agent type
             </label>
             <select
               className="select-input"
               disabled={status === 'loading'}
-              id="target-role"
+              id="agent-type"
               onChange={(event) => {
-                const nextRole = event.target.value as TargetRole;
-                setTargetRole(nextRole);
-                setOutputType(getDefaultOutputTypeForRole(nextRole));
-                void setLastTargetRole(nextRole);
+                const nextAgentType = event.target.value as AgentType;
+                setAgentType(nextAgentType);
+                void setLastAgentType(nextAgentType);
               }}
-              value={targetRole}
+              value={agentType}
             >
-              {targetRoleOptions.map((option) => (
+              {agentTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label className="field-label" htmlFor="output-type">
-              Output type
-            </label>
-            <select
-              className="select-input"
-              disabled={status === 'loading'}
-              id="output-type"
-              onChange={(event) => {
-                setOutputType(event.target.value as OutputType);
-              }}
-              value={outputType}
-            >
-              {outputTypeOptions
-                .filter((option) =>
-                  isOutputTypeValidForRole(targetRole, option.value),
-                )
-                .map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
             </select>
           </div>
         </div>

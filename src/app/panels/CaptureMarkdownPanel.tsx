@@ -1,11 +1,13 @@
 import { Camera, Copy, Download, Upload } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { extractMarkdown } from '@/shared/api';
 import { env } from '@/shared/config';
+import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import { downloadMarkdown } from '@/shared/lib/markdownDownload';
-import { AccessMode, getAccessGate, getAccessGateMessage } from '@/shared/model/access';
+import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
+import type { RecentCaptureOutput } from '@/shared/model/contextPack';
 import {
   ExtractionApiError,
   type ExtractMarkdownResponse,
@@ -61,7 +63,13 @@ function getInitialErrorMessage(error: unknown): string {
   return 'Unable to extract Markdown from this source.';
 }
 
-export function CaptureMarkdownPanel() {
+interface CaptureMarkdownPanelProps {
+  restoredOutput?: RecentCaptureOutput | null;
+}
+
+export function CaptureMarkdownPanel({
+  restoredOutput = null,
+}: CaptureMarkdownPanelProps) {
   const accessStore = useAccessStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>(
@@ -74,26 +82,37 @@ export function CaptureMarkdownPanel() {
   >('idle');
   const [sourceLabel, setSourceLabel] = useState('No source captured');
   const accessGate = getAccessGate(accessStore);
-  const unsupportedByokProvider =
-    accessStore.mode === AccessMode.Byok &&
-    accessStore.byok.provider !== 'openai';
   const canExtract =
     accessStore.ready &&
     accessGate.kind === 'allowed' &&
-    !unsupportedByokProvider &&
     status !== 'loading';
   const markdown = result?.markdown ?? '';
   const helperMessage = useMemo(() => {
-    if (unsupportedByokProvider) {
-      return 'Capture to Markdown supports OpenAI only in this version. Select OpenAI in Access to use BYOK extraction.';
-    }
-
     if (accessGate.kind === 'blocked') {
       return getAccessGateMessage(accessGate.reason);
     }
 
     return null;
-  }, [accessGate, unsupportedByokProvider]);
+  }, [accessGate]);
+
+  useEffect(() => {
+    if (!restoredOutput) {
+      return;
+    }
+
+    setCopyStatus('idle');
+    setErrorMessage(null);
+    setResult({
+      confidence: 'medium',
+      createdAt: restoredOutput.createdAt,
+      id: restoredOutput.id,
+      markdown: restoredOutput.markdown,
+      title: restoredOutput.title,
+      warnings: restoredOutput.warnings,
+    });
+    setSourceLabel(restoredOutput.sourceTitle);
+    setStatus('success');
+  }, [restoredOutput]);
 
   async function runExtraction(input: {
     dataBase64: string;
@@ -137,6 +156,16 @@ export function CaptureMarkdownPanel() {
       setResult(nextResult);
       setSourceLabel(nextResult.title);
       setStatus('success');
+      await addRecentContextPackOutput({
+        createdAt: nextResult.createdAt,
+        id: nextResult.id,
+        kind: 'capture',
+        markdown: nextResult.markdown,
+        source: input.source,
+        sourceTitle: nextResult.title,
+        title: nextResult.title,
+        warnings: nextResult.warnings,
+      });
     } catch (error) {
       setErrorMessage(getInitialErrorMessage(error));
       setStatus('error');

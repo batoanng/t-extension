@@ -29,7 +29,15 @@ export const sourceTypes = [
   'generic_web',
 ] as const;
 
-export const targetRoles = [
+export const agentTypes = [
+  'ci-expert',
+  'data-analyst',
+  'design-architect',
+  'planner',
+  'security-architect',
+] as const;
+
+const legacyTargetRoles = [
   'developer',
   'tester',
   'business_analyst',
@@ -37,7 +45,7 @@ export const targetRoles = [
   'designer',
 ] as const;
 
-export const outputTypes = [
+const legacyOutputTypes = [
   'implementation_brief',
   'test_plan',
   'requirements_brief',
@@ -68,12 +76,10 @@ export const generationErrorCodes = [
 export const MIN_CONTEXT_LENGTH = 3;
 export const MAX_CONTEXT_LENGTH = 20_000;
 export const MAX_RECENT_OUTPUTS = 5;
-export const DEFAULT_TARGET_ROLE = 'developer';
-export const DEFAULT_OUTPUT_TYPE = 'implementation_brief';
+export const DEFAULT_AGENT_TYPE = 'planner';
 
 export type SourceType = (typeof sourceTypes)[number];
-export type TargetRole = (typeof targetRoles)[number];
-export type OutputType = (typeof outputTypes)[number];
+export type AgentType = (typeof agentTypes)[number];
 export type GenerationErrorCode = (typeof generationErrorCodes)[number];
 export type GenerationMetadataProvider =
   (typeof generationMetadataProviders)[number];
@@ -117,6 +123,7 @@ export const ExtractedContextSchema = z.object({
 
 export const GenerateBriefRequestSchema = z
   .object({
+    agentType: z.enum(agentTypes).default(DEFAULT_AGENT_TYPE),
     context: ExtractedContextSchema,
     credentialMode: z.enum(['byok', 'subscription']).default('byok'),
     model: z.string().trim().min(1).optional(),
@@ -139,9 +146,9 @@ export const GenerateBriefRequestSchema = z
         outputFormat: 'markdown',
         tone: 'detailed',
       }),
-    outputType: z.enum(outputTypes).default(DEFAULT_OUTPUT_TYPE),
+    outputType: z.enum(legacyOutputTypes).optional(),
     provider: z.enum(byokProviders).optional(),
-    targetRole: z.enum(targetRoles).default(DEFAULT_TARGET_ROLE),
+    targetRole: z.enum(legacyTargetRoles).optional(),
   })
   .superRefine((value, context) => {
     const contextText = getContextPlainText(value.context);
@@ -162,25 +169,6 @@ export const GenerateBriefRequestSchema = z
       });
     }
 
-    if (value.credentialMode !== 'byok') {
-      return;
-    }
-
-    if (!value.provider) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Provider is required for BYOK requests.',
-        path: ['provider'],
-      });
-    }
-
-    if (!value.model) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Model is required for BYOK requests.',
-        path: ['model'],
-      });
-    }
   });
 
 export const MissingInformationItemSchema = z.object({
@@ -193,11 +181,10 @@ export const GenerateBriefResponseSchema = z.object({
   confidence: z.enum(['low', 'medium', 'high']),
   createdAt: z.string().datetime(),
   id: z.string().trim().min(1),
+  agentType: z.enum(agentTypes),
   markdown: z.string().trim().min(1),
   missingInformation: z.array(MissingInformationItemSchema).default([]),
-  outputType: z.enum(outputTypes),
   questions: z.array(z.string().trim()).default([]),
-  targetRole: z.enum(targetRoles),
   title: z.string().trim().min(1),
   warnings: z.array(z.string().trim()).default([]),
 });
@@ -219,15 +206,33 @@ export type GenerationApiClientErrorCode =
   | 'INVALID_RESPONSE'
   | 'REQUEST_TIMEOUT';
 
-export interface RecentContextPackOutput {
+interface RecentContextPackOutputBase {
   createdAt: string;
   id: string;
   markdown: string;
-  outputType: OutputType;
   sourceTitle: string;
-  targetRole: TargetRole;
   title: string;
 }
+
+export interface RecentGenerationOutput extends RecentContextPackOutputBase {
+  agentType: AgentType;
+  context: ExtractedContext;
+  kind: 'generation';
+}
+
+export interface RecentCaptureOutput extends RecentContextPackOutputBase {
+  kind: 'capture';
+  source: {
+    title?: string;
+    type: 'upload' | 'visible_tab';
+    url?: string;
+  };
+  warnings: string[];
+}
+
+export type RecentContextPackOutput =
+  | RecentCaptureOutput
+  | RecentGenerationOutput;
 
 export class GenerationApiError extends Error {
   constructor(
@@ -240,46 +245,16 @@ export class GenerationApiError extends Error {
   }
 }
 
-export const targetRoleOptions: Array<{
+export const agentTypeOptions: Array<{
   label: string;
-  value: TargetRole;
+  value: AgentType;
 }> = [
-  { label: 'Developer', value: 'developer' },
-  { label: 'Tester / QA', value: 'tester' },
-  { label: 'Business Analyst', value: 'business_analyst' },
-  { label: 'Project Manager', value: 'project_manager' },
-  { label: 'Designer', value: 'designer' },
+  { label: 'Planner', value: 'planner' },
+  { label: 'CI Expert', value: 'ci-expert' },
+  { label: 'Data Analyst', value: 'data-analyst' },
+  { label: 'Design Architect', value: 'design-architect' },
+  { label: 'Security Architect', value: 'security-architect' },
 ];
-
-export const outputTypeOptions: Array<{
-  label: string;
-  value: OutputType;
-}> = [
-  { label: 'Implementation Brief', value: 'implementation_brief' },
-  { label: 'Test Plan', value: 'test_plan' },
-  { label: 'Requirements Brief', value: 'requirements_brief' },
-  { label: 'Delivery Brief', value: 'delivery_brief' },
-  { label: 'UX Brief', value: 'ux_brief' },
-];
-
-const outputTypeByRole: Record<TargetRole, OutputType> = {
-  business_analyst: 'requirements_brief',
-  designer: 'ux_brief',
-  developer: 'implementation_brief',
-  project_manager: 'delivery_brief',
-  tester: 'test_plan',
-};
-
-export function getDefaultOutputTypeForRole(role: TargetRole): OutputType {
-  return outputTypeByRole[role];
-}
-
-export function isOutputTypeValidForRole(
-  role: TargetRole,
-  outputType: OutputType,
-): boolean {
-  return outputTypeByRole[role] === outputType;
-}
 
 export function getContextPlainText(context: ExtractedContext): string {
   return [
@@ -341,11 +316,11 @@ export function getGenerationApiErrorMessage(
     case 'INVALID_ROLE_OUTPUT_COMBINATION':
       return 'The selected role and output type cannot be used together.';
     case 'BYOK_AUTH_FAILED':
-      return 'The selected provider rejected the provided API key.';
+      return 'OpenRouter rejected the provided API key.';
     case 'BYOK_RATE_LIMITED':
-      return 'The selected provider rate limit was reached. Please wait and try again.';
+      return 'OpenRouter rate limit was reached. Please wait and try again.';
     case 'BYOK_REQUEST_FAILED':
-      return 'The selected provider could not generate the brief. Please try again.';
+      return 'OpenRouter could not generate the brief. Please try again.';
     case 'SUBSCRIPTION_REQUIRED':
       return 'Subscribe for shared hosted access to use hosted generation.';
     case 'SUBSCRIPTION_INACTIVE':

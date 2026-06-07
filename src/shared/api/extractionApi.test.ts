@@ -38,7 +38,7 @@ describe('extractMarkdown', () => {
     vi.mocked(axios.request).mockReset();
   });
 
-  it('posts OpenAI BYOK extraction requests to the extractions endpoint', async () => {
+  it('posts OpenRouter BYOK extraction requests to the extractions endpoint', async () => {
     vi.mocked(axios.request).mockResolvedValue(
       createAxiosResponse({
         confidence: 'high',
@@ -55,8 +55,8 @@ describe('extractMarkdown', () => {
         access: {
           apiKey: 'sk-test',
           kind: 'byok',
-          model: 'gpt-5.5',
-          provider: 'openai',
+          model: 'openrouter/auto',
+          provider: 'openrouter',
         },
         payload,
         serverBaseUrl: 'http://localhost:3000',
@@ -72,7 +72,6 @@ describe('extractMarkdown', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           mimeType: 'image/png',
-          provider: 'openai',
         }),
         headers: expect.objectContaining({
           'x-byok-api-key': 'sk-test',
@@ -101,8 +100,8 @@ describe('extractMarkdown', () => {
         access: {
           apiKey: 'sk-test',
           kind: 'byok',
-          model: 'gpt-5.5',
-          provider: 'openai',
+          model: 'openrouter/auto',
+          provider: 'openrouter',
         },
         payload,
         serverBaseUrl: 'http://localhost:3000',
@@ -125,8 +124,6 @@ describe('extractMarkdown', () => {
         ExtractMarkdownRequestSchema.parse({
           ...payload,
           mimeType,
-          model: 'gpt-5.5',
-          provider: 'openai',
         }),
       ).not.toThrow();
     }

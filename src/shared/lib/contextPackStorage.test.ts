@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   addRecentContextPackOutput,
-  getLastTargetRole,
+  getLastAgentType,
   getRecentContextPackOutputs,
-  setLastTargetRole,
+  setLastAgentType,
 } from './contextPackStorage';
 
 describe('contextPackStorage', () => {
@@ -12,31 +12,51 @@ describe('contextPackStorage', () => {
     localStorage.clear();
   });
 
-  it('stores and reads the last selected target role', async () => {
-    expect(await getLastTargetRole()).toBe('developer');
+  it('stores and reads the last selected agent type', async () => {
+    expect(await getLastAgentType()).toBe('planner');
 
-    await setLastTargetRole('tester');
+    await setLastAgentType('ci-expert');
 
-    expect(await getLastTargetRole()).toBe('tester');
+    expect(await getLastAgentType()).toBe('ci-expert');
   });
 
   it('stores recent outputs newest first and de-duplicates by id', async () => {
     await addRecentContextPackOutput({
+      agentType: 'planner',
+      context: {
+        attachments: [],
+        codeBlocks: [],
+        comments: [],
+        labels: [],
+        linkedItems: [],
+        sourceType: 'manual',
+        tables: [],
+        title: 'Ticket one',
+      },
       createdAt: '2026-05-08T00:00:00.000Z',
       id: 'gen_1',
+      kind: 'generation',
       markdown: '# One',
-      outputType: 'implementation_brief',
       sourceTitle: 'Ticket one',
-      targetRole: 'developer',
       title: 'One',
     });
     await addRecentContextPackOutput({
+      agentType: 'planner',
+      context: {
+        attachments: [],
+        codeBlocks: [],
+        comments: [],
+        labels: [],
+        linkedItems: [],
+        sourceType: 'manual',
+        tables: [],
+        title: 'Ticket one',
+      },
       createdAt: '2026-05-08T00:01:00.000Z',
       id: 'gen_1',
+      kind: 'generation',
       markdown: '# Updated',
-      outputType: 'implementation_brief',
       sourceTitle: 'Ticket one',
-      targetRole: 'developer',
       title: 'Updated',
     });
 

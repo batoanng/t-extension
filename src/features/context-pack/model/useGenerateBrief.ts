@@ -4,6 +4,8 @@ import { generateBrief } from '@/shared/api';
 import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import type { GenerationAccess } from '@/shared/model/access';
 import {
+  type RecentGenerationOutput,
+  ExtractedContextSchema,
   type GenerateBriefRequest,
   type GenerateBriefResponse,
   type GenerationApiClientErrorCode,
@@ -30,6 +32,7 @@ type GenerateBriefAction =
     }
   | { errorMessage: string; type: 'generate-failed' }
   | { recentOutputs: RecentContextPackOutput[]; type: 'recent-loaded' }
+  | { result: GenerateBriefResponse; type: 'result-restored' }
   | { type: 'copy-succeeded' }
   | { errorMessage: string; type: 'copy-failed' };
 
@@ -72,6 +75,14 @@ function reducer(
       return {
         ...state,
         recentOutputs: action.recentOutputs,
+      };
+    case 'result-restored':
+      return {
+        ...state,
+        copyStatus: 'idle',
+        errorMessage: null,
+        result: action.result,
+        status: 'success',
       };
     case 'copy-succeeded':
       return {
@@ -126,11 +137,28 @@ export function useGenerateBrief() {
       });
     }
   }, [state.result?.markdown]);
+  const restoreGenerationOutput = useCallback((output: RecentGenerationOutput) => {
+    dispatch({
+      result: {
+        agentType: output.agentType,
+        confidence: 'medium',
+        createdAt: output.createdAt,
+        id: output.id,
+        markdown: output.markdown,
+        missingInformation: [],
+        questions: [],
+        title: output.title,
+        warnings: [],
+      },
+      type: 'result-restored',
+    });
+  }, []);
 
   return {
     ...state,
     copyMarkdown,
     loadRecentOutputs,
+    restoreGenerationOutput,
     async runGenerateBrief({
       access,
       payload,
@@ -150,13 +178,15 @@ export function useGenerateBrief() {
           signal: controller.signal,
           serverBaseUrl,
         });
+        const parsedContext = ExtractedContextSchema.parse(payload.context);
         const recentOutputs = await addRecentContextPackOutput({
+          agentType: result.agentType,
+          context: parsedContext,
           createdAt: result.createdAt,
           id: result.id,
+          kind: 'generation',
           markdown: result.markdown,
-          outputType: result.outputType,
-          sourceTitle: payload.context.title ?? 'Untitled context',
-          targetRole: result.targetRole,
+          sourceTitle: parsedContext.title ?? 'Untitled context',
           title: result.title,
         });
 

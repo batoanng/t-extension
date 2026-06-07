@@ -11,22 +11,14 @@ export enum MagicLinkStatus {
   Expired = 'expired',
 }
 
-export const byokProviders = [
-  'openai',
-  'claude',
-  'deepseek',
-  'gemini',
-] as const;
+export const byokProviders = ['openrouter'] as const;
 
 export type ByokProvider = (typeof byokProviders)[number];
 
-export const DEFAULT_BYOK_PROVIDER: ByokProvider = 'openai';
+export const DEFAULT_BYOK_PROVIDER: ByokProvider = 'openrouter';
 
 const byokProviderLabels: Record<ByokProvider, string> = {
-  claude: 'Claude',
-  deepseek: 'DeepSeek',
-  gemini: 'Gemini',
-  openai: 'OpenAI',
+  openrouter: 'OpenRouter',
 };
 
 export const AccessCatalogModelSchema = z.object({
@@ -97,7 +89,7 @@ export interface SubscriptionStatus {
     cancelAtPeriodEnd: boolean;
     currentPeriodEnd: string | null;
     enabled: boolean;
-    provider: 'byok' | 'deepseek';
+    provider: 'byok' | 'openrouter';
     status: string;
   };
   user: {
@@ -232,14 +224,8 @@ export function resolveByokModel(input: { selectedModel: string }): string {
 
 export function getProviderApiKeyHint(provider: ByokProvider): string {
   switch (provider) {
-    case 'openai':
-      return 'Use an OpenAI API key for the selected OpenAI model.';
-    case 'claude':
-      return 'Use an Anthropic API key for the selected Claude model.';
-    case 'deepseek':
-      return 'Use a DeepSeek API key for the selected DeepSeek model.';
-    case 'gemini':
-      return 'Use a Gemini API key for the selected Gemini model.';
+    case 'openrouter':
+      return 'Use an OpenRouter API key. Requests use the configured OpenRouter model.';
   }
 }
 

@@ -9,9 +9,9 @@ function createCatalog(models: string[]): AccessCatalogResponse {
     generatedAt: '2026-04-27T00:00:00.000Z',
     providers: [
       {
-        defaultModelId: models[0] ?? 'gpt-default',
-        id: 'openai',
-        label: 'OpenAI',
+        defaultModelId: models[0] ?? 'openrouter/auto',
+        id: 'openrouter',
+        label: 'OpenRouter',
         models: models.map((model) => ({
           id: model,
           label: model,
@@ -32,11 +32,11 @@ describe('reconcileByokConfig', () => {
     expect(
       reconcileByokConfig(null, {
         apiKey: 'sk-test',
-        provider: 'openai',
+        provider: 'openrouter',
         selectedModel: 'gpt-saved',
       }),
     ).toMatchObject({
-      provider: 'openai',
+      provider: 'openrouter',
       selectedModel: 'gpt-saved',
     });
   });
@@ -45,11 +45,11 @@ describe('reconcileByokConfig', () => {
     expect(
       reconcileByokConfig(createCatalog(['gpt-default']), {
         apiKey: 'sk-test',
-        provider: 'openai',
+        provider: 'openrouter',
         selectedModel: 'gpt-removed',
       }),
     ).toMatchObject({
-      provider: 'openai',
+      provider: 'openrouter',
       selectedModel: 'gpt-default',
     });
   });
@@ -60,7 +60,7 @@ describe('getAccessGate', () => {
     const snapshot: AccessSnapshot = {
       byok: {
         apiKey: 'sk-test',
-        provider: 'openai',
+        provider: 'openrouter',
         selectedModel: 'gpt-saved',
       },
       catalog: {

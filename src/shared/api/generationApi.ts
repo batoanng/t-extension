@@ -28,8 +28,6 @@ export async function generateBrief({
   const request = GenerateBriefRequestSchema.parse({
     ...payload,
     credentialMode: access.kind === 'byok' ? 'byok' : 'subscription',
-    model: access.kind === 'byok' ? access.model : payload.model,
-    provider: access.kind === 'byok' ? access.provider : payload.provider,
   });
   const headers: Record<string, string> = {
     'content-type': 'application/json',

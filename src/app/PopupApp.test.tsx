@@ -40,13 +40,13 @@ function createAccessCatalogResponse() {
     generatedAt: '2026-04-27T00:00:00.000Z',
     providers: [
       {
-        defaultModelId: 'gpt-5.5',
-        id: 'openai',
-        label: 'OpenAI',
+        defaultModelId: 'openrouter/auto',
+        id: 'openrouter',
+        label: 'OpenRouter',
         models: [
           {
-            id: 'gpt-5.5',
-            label: 'GPT 5.5',
+            id: 'openrouter/auto',
+            label: 'OpenRouter Auto',
           },
         ],
       },
@@ -65,8 +65,8 @@ function seedByokApiKey(apiKey = 'sk-test') {
     'byok_access_config',
     JSON.stringify({
       apiKey,
-      provider: 'openai',
-      selectedModel: 'gpt-5.5',
+      provider: 'openrouter',
+      selectedModel: 'openrouter/auto',
     }),
   );
 }
@@ -293,7 +293,7 @@ describe('PopupApp', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Generated briefs will appear here after your first successful run.',
+        'Generated briefs and captured Markdown will appear here after your first successful run.',
       ),
     ).toBeInTheDocument();
   });
@@ -309,10 +309,10 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('API key')).toBeEnabled();
+      expect(screen.getByLabelText('OpenRouter API key')).toBeEnabled();
     });
 
-    fireEvent.change(screen.getByLabelText('API key'), {
+    fireEvent.change(screen.getByLabelText('OpenRouter API key'), {
       target: {
         value: 'sk-new',
       },
@@ -410,11 +410,10 @@ describe('PopupApp', () => {
           confidence: 'high',
           createdAt: '2026-05-08T00:00:00.000Z',
           id: 'gen_123',
+          agentType: 'planner',
           markdown: '# Developer Implementation Brief',
           missingInformation: [],
-          outputType: 'implementation_brief',
           questions: [],
-          targetRole: 'developer',
           title: 'Developer Implementation Brief',
           warnings: [],
         }),
@@ -458,8 +457,7 @@ describe('PopupApp', () => {
             description: 'Build discount code validation for checkout.',
             sourceType: 'manual_paste',
           }),
-          outputType: 'implementation_brief',
-          targetRole: 'developer',
+          agentType: 'planner',
         }),
         method: 'POST',
         url: 'http://localhost:3000/api/v1/generations',
@@ -575,28 +573,17 @@ describe('PopupApp', () => {
     });
   });
 
-  it('disables capture when BYOK provider is not OpenAI', async () => {
+  it('keeps capture available with OpenRouter BYOK access', async () => {
     vi.mocked(axios.request).mockResolvedValueOnce(
       createAxiosResponse({
         cacheTtlSeconds: 86_400,
         generatedAt: '2026-04-27T00:00:00.000Z',
         providers: [
           {
-            defaultModelId: 'gpt-5.5',
-            id: 'openai',
-            label: 'OpenAI',
-            models: [{ id: 'gpt-5.5', label: 'GPT 5.5' }],
-          },
-          {
-            defaultModelId: 'claude-sonnet-4.6',
-            id: 'claude',
-            label: 'Claude',
-            models: [
-              {
-                id: 'claude-sonnet-4.6',
-                label: 'Claude Sonnet 4.6',
-              },
-            ],
+            defaultModelId: 'openrouter/auto',
+            id: 'openrouter',
+            label: 'OpenRouter',
+            models: [{ id: 'openrouter/auto', label: 'OpenRouter Auto' }],
           },
         ],
         sharedHostedOffering: {
@@ -611,8 +598,8 @@ describe('PopupApp', () => {
       'byok_access_config',
       JSON.stringify({
         apiKey: 'sk-test',
-        provider: 'claude',
-        selectedModel: 'claude-sonnet-4.6',
+        provider: 'openrouter',
+        selectedModel: 'openrouter/auto',
       }),
     );
 
@@ -622,11 +609,8 @@ describe('PopupApp', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/supports OpenAI only in this version/i),
-      ).toBeInTheDocument();
-      expect(
         screen.getByRole('button', { name: /Capture visible tab/i }),
-      ).toBeDisabled();
+      ).toBeEnabled();
     });
   });
 });

@@ -32,6 +32,7 @@ const payload = {
     sourceType: 'manual' as const,
     title: 'Discount validation',
   },
+  agentType: 'planner' as const,
   options: {
     includeComments: true,
     includeLinkedItems: true,
@@ -41,8 +42,6 @@ const payload = {
     outputFormat: 'markdown' as const,
     tone: 'detailed' as const,
   },
-  outputType: 'implementation_brief' as const,
-  targetRole: 'developer' as const,
 };
 
 const v1SourceTypes = [
@@ -77,11 +76,10 @@ describe('generateBrief', () => {
         confidence: 'high',
         createdAt: '2026-05-08T00:00:00.000Z',
         id: 'gen_123',
+        agentType: 'planner',
         markdown: '# Brief',
         missingInformation: [],
-        outputType: 'implementation_brief',
         questions: [],
-        targetRole: 'developer',
         title: 'Brief',
         warnings: [],
       }),
@@ -92,8 +90,8 @@ describe('generateBrief', () => {
         access: {
           apiKey: 'sk-test',
           kind: 'byok',
-          model: 'gpt-5.5',
-          provider: 'openai',
+          model: 'openrouter/auto',
+          provider: 'openrouter',
         },
         payload,
         serverBaseUrl: 'http://localhost:3000',
@@ -134,8 +132,8 @@ describe('generateBrief', () => {
         access: {
           apiKey: '',
           kind: 'byok',
-          model: 'gpt-5.5',
-          provider: 'openai',
+          model: 'openrouter/auto',
+          provider: 'openrouter',
         },
         payload,
         serverBaseUrl: 'http://localhost:3000',
@@ -155,8 +153,6 @@ describe('generateBrief', () => {
           ...payload.context,
           sourceType,
         },
-        model: 'gpt-5.5',
-        provider: 'openai',
       }),
     ).not.toThrow();
   });

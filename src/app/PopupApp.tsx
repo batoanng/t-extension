@@ -12,6 +12,11 @@ import {
   CONTEXTPACK_ACTION_CLICKED_MESSAGE_TYPE,
   type ContextPackActionClickedMessage,
 } from '@/shared/api';
+import type {
+  RecentCaptureOutput,
+  RecentContextPackOutput,
+  RecentGenerationOutput,
+} from '@/shared/model/contextPack';
 
 import { ActivePanelContent, type ActivePanel } from './panels';
 
@@ -60,6 +65,10 @@ export function PopupApp() {
   const hasResolvedInitialPanel = useRef(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>('access');
   const [extractionRequestId, setExtractionRequestId] = useState(0);
+  const [restoredCaptureOutput, setRestoredCaptureOutput] =
+    useState<RecentCaptureOutput | null>(null);
+  const [restoredGenerationOutput, setRestoredGenerationOutput] =
+    useState<RecentGenerationOutput | null>(null);
 
   useEffect(() => {
     if (!isApiKeyReady || hasResolvedInitialPanel.current) {
@@ -73,6 +82,21 @@ export function PopupApp() {
   function selectPanel(panel: ActivePanel) {
     hasResolvedInitialPanel.current = true;
     setActivePanel(panel);
+  }
+
+  function handleRecentOutputSelected(output: RecentContextPackOutput) {
+    hasResolvedInitialPanel.current = true;
+
+    if (output.kind === 'capture') {
+      setRestoredCaptureOutput(output);
+      setRestoredGenerationOutput(null);
+      setActivePanel('capture');
+      return;
+    }
+
+    setRestoredGenerationOutput(output);
+    setRestoredCaptureOutput(null);
+    setActivePanel('generate');
   }
 
   const openGenerateAndExtract = useCallback(() => {
@@ -123,6 +147,9 @@ export function PopupApp() {
               activePanel={activePanel}
               extractionRequestId={extractionRequestId}
               onAccessConfigured={openGenerateAndExtract}
+              onRecentOutputSelected={handleRecentOutputSelected}
+              restoredCaptureOutput={restoredCaptureOutput}
+              restoredGenerationOutput={restoredGenerationOutput}
             />
           </div>
 
