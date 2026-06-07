@@ -258,6 +258,53 @@ The business promise is the same regardless of access mode:
 - Developer Assistant returns a clearer, more structured prompt
 - the improved prompt is ready to copy into the user's preferred AI tool
 
+---
+
+## 10. Capture To Markdown
+
+Capture to Markdown is a second extension tab, positioned after `Generate` in
+the side rail.
+
+### User capability
+
+Users can:
+
+- capture the visible active browser tab as an image
+- upload a PNG, JPEG, WebP, or PDF source
+- send the source to the backend extraction API
+- view the extracted Markdown in the Capture tab
+- copy or download the Markdown as `.md`
+
+### Extraction behavior
+
+The feature converts source material into faithful Markdown. It must not create
+a role-specific brief, summarize the source, or store the output in Recent
+outputs. Recent outputs remain scoped to generated briefs.
+
+### Access behavior
+
+Capture to Markdown v1 supports OpenAI only.
+
+- BYOK extraction requires OpenAI as the selected provider.
+- Non-OpenAI BYOK providers must show a clear unsupported-provider message.
+- Shared hosted extraction uses the backend OpenAI key and configured OpenAI
+  model when hosted access is active.
+
+### Privacy and scope
+
+Visible-tab capture sends the currently visible browser viewport to the backend.
+It does not capture arbitrary desktop windows, other apps, or full-page scrolled
+content.
+
+Uploaded images and PDFs are sent to the backend for AI extraction. Sources over
+10 MB are rejected.
+
+### V1 limitations
+
+The first version does not support DOCX, PPTX, full-page capture, arbitrary
+desktop capture, local-only OCR, or saving captured Markdown into Recent
+outputs.
+
 The product should not frame Prompt Optimizer as locked to a single downstream agent type. It should support broader use cases such as:
 
 - general requests

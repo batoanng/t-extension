@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/react';
 import axios from 'axios';
@@ -150,6 +151,41 @@ function stubChromeExtraction(snapshots: PageSnapshot[]) {
   };
 }
 
+function stubChromeCapture(dataUrl = 'data:image/png;base64,aGVsbG8=') {
+  const listeners = new Set<
+    Parameters<typeof chrome.runtime.onMessage.addListener>[0]
+  >();
+  const captureVisibleTab = vi.fn().mockResolvedValue(dataUrl);
+
+  vi.stubGlobal('chrome', {
+    runtime: {
+      onMessage: {
+        addListener: vi.fn((listener) => {
+          listeners.add(listener);
+        }),
+        removeListener: vi.fn((listener) => {
+          listeners.delete(listener);
+        }),
+      },
+    },
+    tabs: {
+      captureVisibleTab,
+      query: vi.fn().mockResolvedValue([
+        {
+          id: 123,
+          title: 'Visible Product Spec',
+          url: 'https://docs.example.com/spec',
+          windowId: 1,
+        },
+      ]),
+    },
+  });
+
+  return {
+    captureVisibleTab,
+  };
+}
+
 describe('PopupApp', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
@@ -216,6 +252,18 @@ describe('PopupApp', () => {
   it('switches feature panels from the side rail', () => {
     render(<PopupApp />);
 
+    const rail = screen.getByRole('navigation', {
+      name: 'ContextPackAI sections',
+    });
+    expect(
+      within(rail).getAllByRole('button').map((button) => button.textContent),
+    ).toEqual(['', '', '', '', '']);
+    expect(
+      within(rail).getAllByRole('button').map((button) =>
+        button.getAttribute('aria-label'),
+      ),
+    ).toEqual(['Generate', 'Capture', 'Access', 'Recent', 'Support']);
+
     expect(
       screen.getByRole('heading', { name: 'Generation Access' }),
     ).toBeInTheDocument();
@@ -224,6 +272,12 @@ describe('PopupApp', () => {
 
     expect(
       screen.getByRole('heading', { name: 'ContextPackAI' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Capture to Markdown' }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Access' }));
@@ -411,5 +465,168 @@ describe('PopupApp', () => {
         url: 'http://localhost:3000/api/v1/generations',
       }),
     );
+  });
+
+  it('captures the visible tab and previews extracted markdown', async () => {
+    seedByokApiKey();
+    const chromeStub = stubChromeCapture();
+    vi.mocked(axios.request)
+      .mockResolvedValueOnce(createAccessCatalogResponse())
+      .mockResolvedValueOnce(
+        createAxiosResponse({
+          confidence: 'high',
+          createdAt: '2026-06-06T00:00:00.000Z',
+          id: 'ext_123',
+          markdown: '# Extracted visible tab',
+          title: 'Visible Product Spec',
+          warnings: [],
+        }),
+      );
+
+    render(<PopupApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'Capture to Markdown' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Capture visible tab/i }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Capture visible tab/i }),
+    );
+
+    await waitFor(() => {
+      expect(chromeStub.captureVisibleTab).toHaveBeenCalledWith(1, {
+        format: 'png',
+      });
+      expect(screen.getByLabelText('Markdown preview')).toHaveValue(
+        '# Extracted visible tab',
+      );
+    });
+
+    expect(axios.request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dataBase64: 'aGVsbG8=',
+          mimeType: 'image/png',
+          source: expect.objectContaining({
+            title: 'Visible Product Spec',
+            type: 'visible_tab',
+            url: 'https://docs.example.com/spec',
+          }),
+        }),
+        method: 'POST',
+        url: 'http://localhost:3000/api/v1/extractions',
+      }),
+    );
+  });
+
+  it('uploads an image source and copies extracted markdown', async () => {
+    seedByokApiKey();
+    vi.mocked(axios.request)
+      .mockResolvedValueOnce(createAccessCatalogResponse())
+      .mockResolvedValueOnce(
+        createAxiosResponse({
+          confidence: 'medium',
+          createdAt: '2026-06-06T00:00:00.000Z',
+          id: 'ext_upload',
+          markdown: '# Uploaded image',
+          title: 'diagram.png',
+          warnings: [],
+        }),
+      );
+
+    render(<PopupApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Upload image or PDF source')).toBeEnabled();
+    });
+
+    const file = new File(['hello'], 'diagram.png', {
+      type: 'image/png',
+    });
+
+    fireEvent.change(screen.getByLabelText('Upload image or PDF source'), {
+      target: {
+        files: [file],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Markdown preview')).toHaveValue(
+        '# Uploaded image',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Copy$/i }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        '# Uploaded image',
+      );
+      expect(screen.getByText('Markdown copied.')).toBeInTheDocument();
+    });
+  });
+
+  it('disables capture when BYOK provider is not OpenAI', async () => {
+    vi.mocked(axios.request).mockResolvedValueOnce(
+      createAxiosResponse({
+        cacheTtlSeconds: 86_400,
+        generatedAt: '2026-04-27T00:00:00.000Z',
+        providers: [
+          {
+            defaultModelId: 'gpt-5.5',
+            id: 'openai',
+            label: 'OpenAI',
+            models: [{ id: 'gpt-5.5', label: 'GPT 5.5' }],
+          },
+          {
+            defaultModelId: 'claude-sonnet-4.6',
+            id: 'claude',
+            label: 'Claude',
+            models: [
+              {
+                id: 'claude-sonnet-4.6',
+                label: 'Claude Sonnet 4.6',
+              },
+            ],
+          },
+        ],
+        sharedHostedOffering: {
+          enabled: true,
+          label: 'Author Shared Key',
+          plan: 'pro',
+          priceAudMonthly: 2,
+        },
+      }),
+    );
+    localStorage.setItem(
+      'byok_access_config',
+      JSON.stringify({
+        apiKey: 'sk-test',
+        provider: 'claude',
+        selectedModel: 'claude-sonnet-4.6',
+      }),
+    );
+
+    render(<PopupApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/supports OpenAI only in this version/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Capture visible tab/i }),
+      ).toBeDisabled();
+    });
   });
 });

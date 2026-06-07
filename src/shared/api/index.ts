@@ -17,4 +17,5 @@ export {
   requestMagicLink,
 } from './accessApi';
 export { createDonationCheckoutSession } from './donationApi';
+export { extractMarkdown } from './extractionApi';
 export { generateBrief } from './generationApi';

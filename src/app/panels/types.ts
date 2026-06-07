@@ -1,1 +1,1 @@
-export type ActivePanel = 'generate' | 'access' | 'recent' | 'support';
+export type ActivePanel = 'generate' | 'capture' | 'access' | 'recent' | 'support';

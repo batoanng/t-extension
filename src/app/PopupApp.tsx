@@ -1,4 +1,10 @@
-import { FileText, HeartHandshake, History, KeyRound } from 'lucide-react';
+import {
+  FileText,
+  HeartHandshake,
+  History,
+  KeyRound,
+  ScanText,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSavedApiKey } from '@/features/api-key/model/useSavedApiKey';
@@ -11,6 +17,7 @@ import { ActivePanelContent, type ActivePanel } from './panels';
 
 const panelLabels: Record<ActivePanel, string> = {
   access: 'Access',
+  capture: 'Capture',
   generate: 'Generate',
   recent: 'Recent',
   support: 'Support',
@@ -21,6 +28,11 @@ const railItems = [
     icon: FileText,
     id: 'generate',
     label: panelLabels.generate,
+  },
+  {
+    icon: ScanText,
+    id: 'capture',
+    label: panelLabels.capture,
   },
   {
     icon: KeyRound,

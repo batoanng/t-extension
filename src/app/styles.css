@@ -432,6 +432,10 @@ button {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   min-height: 40px;
@@ -473,6 +477,19 @@ button {
 .button-ghost {
   background: transparent;
   color: var(--accent-strong);
+}
+
+.visually-hidden-input {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  margin: -1px;
+  padding: 0;
+  white-space: nowrap;
 }
 
 .text-link {
