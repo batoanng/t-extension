@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AccessCatalogResponse, AccessSnapshot } from './access';
-import { AccessMode, getAccessGate, reconcileByokConfig } from './access';
+import {
+  AccessMode,
+  getAccessGate,
+  isAccessGateErrorReason,
+  reconcileByokConfig,
+} from './access';
 
 function createCatalog(models: string[]): AccessCatalogResponse {
   return {
@@ -88,5 +93,14 @@ describe('getAccessGate', () => {
       kind: 'blocked',
       reason: 'catalog-unavailable',
     });
+  });
+});
+
+describe('isAccessGateErrorReason', () => {
+  it('marks unavailable catalog blocks as errors while keeping loading neutral', () => {
+    expect(isAccessGateErrorReason('catalog-unavailable')).toBe(true);
+    expect(isAccessGateErrorReason('catalog-loading')).toBe(false);
+    expect(isAccessGateErrorReason('loading')).toBe(false);
+    expect(isAccessGateErrorReason('subscription-loading')).toBe(false);
   });
 });

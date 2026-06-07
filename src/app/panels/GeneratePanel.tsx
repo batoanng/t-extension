@@ -1,9 +1,9 @@
 import { ContextPackPopup } from '@/features/context-pack/ui/ContextPackPopup';
-import type { RecentGenerationOutput } from '@/shared/model/contextPack';
+import type { RecentContextPackOutput } from '@/shared/model/contextPack';
 
 interface GeneratePanelProps {
   extractionRequestId: number;
-  restoredOutput?: RecentGenerationOutput | null;
+  restoredOutput?: RecentContextPackOutput | null;
 }
 
 export function GeneratePanel({

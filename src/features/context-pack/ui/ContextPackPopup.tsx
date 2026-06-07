@@ -1,78 +1,70 @@
+import { Camera, Copy, Download, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
+import { useCaptureMarkdown } from '@/features/capture/model/useCaptureMarkdown';
 import { env } from '@/shared/config';
 import {
   getLastAgentType,
-  getRecentContextPackOutputs,
   setLastAgentType,
 } from '@/shared/lib/contextPackStorage';
 import { downloadMarkdown } from '@/shared/lib/markdownDownload';
-import { getAccessGate, getAccessGateMessage } from '@/shared/model/access';
 import {
-  DEFAULT_AGENT_TYPE,
+  getAccessGate,
+  getAccessGateMessage,
+  isAccessGateErrorReason,
+} from '@/shared/model/access';
+import {
   type AgentType,
-  type ExtractedContext,
-  type RecentGenerationOutput,
+  DEFAULT_AGENT_TYPE,
+  type RecentContextPackOutput,
   agentTypeOptions,
+  createManualExtractedContext,
+  getContextPlainText,
   getContextValidationMessage,
   getSourceTypeLabel,
 } from '@/shared/model/contextPack';
+import {
+  type ExtractionMimeType,
+  extractionMimeTypes,
+} from '@/shared/model/extraction';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 
 import { extractCurrentTabContext } from '../lib/pageExtraction';
 import { useGenerateBrief } from '../model/useGenerateBrief';
 
-const manualContextTemplate: ExtractedContext = {
-  attachments: [],
-  codeBlocks: [],
-  comments: [],
-  description: '',
-  linkedItems: [],
-  labels: [],
-  sourceType: 'manual_paste',
-  tables: [],
-  title: 'Manual context',
-};
+function isSupportedMimeType(value: string): value is ExtractionMimeType {
+  return extractionMimeTypes.includes(value as ExtractionMimeType);
+}
 
-function createManualContext(value: string): ExtractedContext {
+function getDataUrlPayload(dataUrl: string) {
+  const match = /^data:([^;,]+);base64,(.+)$/u.exec(dataUrl);
+
+  if (!match) {
+    return null;
+  }
+
   return {
-    ...manualContextTemplate,
-    description: value,
+    dataBase64: match[2],
+    mimeType: match[1],
   };
 }
 
-function getContextPreview(context: ExtractedContext): string {
-  return [
-    context.title ? `Title: ${context.title}` : null,
-    context.status ? `Status: ${context.status}` : null,
-    context.priority ? `Priority: ${context.priority}` : null,
-    context.assignee ? `Assignee: ${context.assignee}` : null,
-    context.reporter ? `Reporter: ${context.reporter}` : null,
-    context.labels.length > 0 ? `Labels: ${context.labels.join(', ')}` : null,
-    context.linkedItems.length > 0
-      ? `Linked items: ${context.linkedItems.length}`
-      : null,
-    context.attachments.length > 0
-      ? `Attachments: ${context.attachments.length}`
-      : null,
-    context.codeBlocks.length > 0
-      ? `Code blocks: ${context.codeBlocks.length}`
-      : null,
-    context.tables.length > 0 ? `Tables: ${context.tables.length}` : null,
-    context.description ? `\n${context.description}` : null,
-    context.comments.length > 0
-      ? `\nComments:\n${context.comments.map((comment) => `- ${comment}`).join('\n')}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
+function appendMarkdown(currentText: string, markdown: string): string {
+  const trimmedCurrentText = currentText.trim();
+  const trimmedMarkdown = markdown.trim();
+
+  if (!trimmedCurrentText) {
+    return trimmedMarkdown;
+  }
+
+  return `${trimmedCurrentText}\n\n${trimmedMarkdown}`;
 }
 
 interface ContextPackPopupProps {
   activePanel: 'generate';
   extractionRequestId?: number;
-  restoredOutput?: RecentGenerationOutput | null;
+  restoredOutput?: RecentContextPackOutput | null;
 }
 
 export function ContextPackPopup({
@@ -80,11 +72,9 @@ export function ContextPackPopup({
   extractionRequestId = 0,
   restoredOutput = null,
 }: ContextPackPopupProps) {
-  const [context, setContext] = useState<ExtractedContext>(
-    manualContextTemplate,
-  );
   const [manualContext, setManualContext] = useState('');
   const [agentType, setAgentType] = useState<AgentType>(DEFAULT_AGENT_TYPE);
+  const [sourceLabel, setSourceLabel] = useState('Manual Context');
   const [extractStatus, setExtractStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -95,21 +85,36 @@ export function ContextPackPopup({
   const {
     copyMarkdown,
     copyStatus,
+    clearResult,
     errorMessage,
-    loadRecentOutputs,
     restoreGenerationOutput,
     result,
     runGenerateBrief,
     status,
   } = useGenerateBrief();
+  const {
+    errorMessage: captureErrorMessage,
+    result: captureResult,
+    runCaptureMarkdown,
+    setCaptureError,
+    status: captureStatus,
+  } = useCaptureMarkdown();
   const accessGate = getAccessGate(accessStore);
+  const context = useMemo(
+    () => createManualExtractedContext({ text: manualContext }),
+    [manualContext],
+  );
   const contextValidationMessage = getContextValidationMessage(context);
   const canGenerate =
     accessStore.ready &&
     accessGate.kind === 'allowed' &&
     contextValidationMessage == null &&
     status !== 'loading';
-  const contextPreview = useMemo(() => getContextPreview(context), [context]);
+  const canCapture =
+    accessStore.ready &&
+    accessGate.kind === 'allowed' &&
+    captureStatus !== 'loading' &&
+    status !== 'loading';
   const hasMounted = useRef(false);
   const isMounted = useRef(true);
 
@@ -130,8 +135,8 @@ export function ContextPackPopup({
         return;
       }
 
-      setContext(extractedContext);
-      setManualContext(extractedContext.description ?? '');
+      setManualContext(getContextPlainText(extractedContext));
+      setSourceLabel(getSourceTypeLabel(extractedContext.sourceType));
       setExtractStatus('success');
     } catch {
       if (!isMounted.current) {
@@ -140,7 +145,7 @@ export function ContextPackPopup({
 
       setExtractStatus('error');
       setExtractErrorMessage(
-        'Unable to extract this page. Paste context manually.',
+        'Unable to extract this page. Paste or capture context manually.',
       );
     }
   }, []);
@@ -148,18 +153,13 @@ export function ContextPackPopup({
   useEffect(() => {
     let cancelled = false;
 
-    void Promise.all([
-      getLastAgentType(),
-      getRecentContextPackOutputs(),
-      refreshContext(),
-    ])
-      .then(([storedAgentType, storedRecentOutputs]) => {
+    void Promise.all([getLastAgentType(), refreshContext()])
+      .then(([storedAgentType]) => {
         if (cancelled) {
           return;
         }
 
         setAgentType(storedAgentType);
-        loadRecentOutputs(storedRecentOutputs);
       })
       .catch(() => {
         if (cancelled) {
@@ -168,28 +168,35 @@ export function ContextPackPopup({
 
         setExtractStatus('error');
         setExtractErrorMessage(
-          'Unable to extract this page. Paste context manually.',
+          'Unable to extract this page. Paste or capture context manually.',
         );
       });
 
     return () => {
       cancelled = true;
     };
-  }, [loadRecentOutputs, refreshContext]);
+  }, [refreshContext]);
 
   useEffect(() => {
     if (!restoredOutput) {
       return;
     }
 
-    setAgentType(restoredOutput.agentType);
-    setContext(restoredOutput.context);
-    setManualContext(restoredOutput.context.description ?? '');
+    setSourceLabel(`Restored: ${restoredOutput.sourceTitle}`);
     setExtractStatus('success');
     setExtractErrorMessage(null);
-    restoreGenerationOutput(restoredOutput);
-    void setLastAgentType(restoredOutput.agentType);
-  }, [restoreGenerationOutput, restoredOutput]);
+
+    if (restoredOutput.kind === 'generation') {
+      setAgentType(restoredOutput.agentType);
+      setManualContext(getContextPlainText(restoredOutput.context));
+      restoreGenerationOutput(restoredOutput);
+      void setLastAgentType(restoredOutput.agentType);
+      return;
+    }
+
+    setManualContext(restoredOutput.markdown);
+    clearResult();
+  }, [clearResult, restoreGenerationOutput, restoredOutput]);
 
   useEffect(() => {
     if (!hasMounted.current) {
@@ -248,11 +255,70 @@ export function ContextPackPopup({
 
   function handleManualContextChange(value: string) {
     setManualContext(value);
-    setContext(createManualContext(value));
+    setSourceLabel('Manual Context');
   }
 
   async function handleRefreshContextClick() {
     await refreshContext();
+  }
+
+  async function handleCaptureVisibleTab() {
+    if (!canCapture) {
+      return;
+    }
+
+    if (!globalThis.chrome?.tabs?.captureVisibleTab) {
+      setCaptureError('Visible tab capture is available only inside Chrome.');
+      return;
+    }
+
+    const access = await accessStore.prepareGenerationAccess();
+
+    if (!access) {
+      return;
+    }
+
+    try {
+      const [activeTab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      const dataUrl = await chrome.tabs.captureVisibleTab(activeTab?.windowId, {
+        format: 'png',
+      });
+      const payload = getDataUrlPayload(dataUrl);
+
+      if (!payload || !isSupportedMimeType(payload.mimeType)) {
+        setCaptureError('Chrome returned an unsupported screenshot format.');
+        return;
+      }
+
+      const extractionResult = await runCaptureMarkdown({
+        access,
+        payload: {
+          dataBase64: payload.dataBase64,
+          filename: 'visible-tab.png',
+          mimeType: payload.mimeType,
+          source: {
+            title: activeTab?.title ?? 'Visible tab capture',
+            type: 'visible_tab',
+            url: activeTab?.url,
+          },
+        },
+        serverBaseUrl: env.serverBaseUrl,
+      });
+
+      if (extractionResult) {
+        setManualContext((currentText) =>
+          appendMarkdown(currentText, extractionResult.markdown),
+        );
+        setSourceLabel(`Captured: ${extractionResult.title}`);
+      }
+    } catch {
+      setCaptureError(
+        'Unable to capture the visible tab. Reopen the side panel from the extension button and try again.',
+      );
+    }
   }
 
   return (
@@ -266,16 +332,15 @@ export function ContextPackPopup({
             ContextPackAI
           </h2>
           <p className="panel-subtitle">
-            Turn the current work item into an agent-specific markdown brief.
+            Paste, type, or capture content, then turn it into an agent-specific
+            Markdown brief.
           </p>
         </div>
       </div>
 
       <div className="stack">
         <div className="detected-row">
-          <span className="meta-pill">
-            Detected: {getSourceTypeLabel(context.sourceType)}
-          </span>
+          <span className="meta-pill">Source: {sourceLabel}</span>
           <button
             className="button button-secondary compact-button"
             disabled={extractStatus === 'loading'}
@@ -284,7 +349,8 @@ export function ContextPackPopup({
             }}
             type="button"
           >
-            {extractStatus === 'loading' ? 'Extracting...' : 'Refresh'}
+            <RefreshCw size={15} strokeWidth={2.2} />
+            {extractStatus === 'loading' ? 'Refreshing...' : 'Refresh page'}
           </button>
         </div>
 
@@ -319,7 +385,7 @@ export function ContextPackPopup({
 
         <div className="field">
           <label className="field-label" htmlFor="manual-context">
-            Manual paste fallback
+            Content
           </label>
           <textarea
             className="text-area manual-context-input"
@@ -328,25 +394,25 @@ export function ContextPackPopup({
             onChange={(event) => {
               handleManualContextChange(event.target.value);
             }}
-            placeholder="Paste a ticket, issue, selected text, or notes here."
+            placeholder="Paste, type, or capture a ticket, issue, selected text, notes, or extracted Markdown here."
             value={manualContext}
           />
         </div>
 
-        <div className="field">
-          <label className="field-label" htmlFor="context-preview">
-            Context preview
-          </label>
-          <textarea
-            className="text-area context-preview"
-            id="context-preview"
-            readOnly
-            value={contextPreview}
-          />
-        </div>
+        {captureErrorMessage ? (
+          <InlineMessage tone="error">{captureErrorMessage}</InlineMessage>
+        ) : null}
+
+        {captureResult?.warnings.length ? (
+          <InlineMessage>{captureResult.warnings.join(' ')}</InlineMessage>
+        ) : null}
 
         {accessGate.kind === 'blocked' ? (
-          <InlineMessage>
+          <InlineMessage
+            tone={
+              isAccessGateErrorReason(accessGate.reason) ? 'error' : undefined
+            }
+          >
             {getAccessGateMessage(accessGate.reason)}
           </InlineMessage>
         ) : null}
@@ -364,6 +430,17 @@ export function ContextPackPopup({
         ) : null}
 
         <div className="button-row">
+          <button
+            className="button button-secondary"
+            disabled={!canCapture}
+            onClick={() => {
+              void handleCaptureVisibleTab();
+            }}
+            type="button"
+          >
+            <Camera size={16} strokeWidth={2.2} />
+            {captureStatus === 'loading' ? 'Capturing...' : 'Capture screen'}
+          </button>
           <button
             className="button button-primary"
             disabled={!canGenerate}
@@ -398,6 +475,7 @@ export function ContextPackPopup({
             }}
             type="button"
           >
+            <Copy size={16} strokeWidth={2.2} />
             Copy
           </button>
           <button
@@ -410,6 +488,7 @@ export function ContextPackPopup({
             }}
             type="button"
           >
+            <Download size={16} strokeWidth={2.2} />
             Download .md
           </button>
         </div>

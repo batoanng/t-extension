@@ -260,6 +260,23 @@ export function getContextPlainText(context: ExtractedContext): string {
     .trim();
 }
 
+export function createManualExtractedContext(input: {
+  text: string;
+  title?: string;
+}): ExtractedContext {
+  return {
+    attachments: [],
+    codeBlocks: [],
+    comments: [],
+    description: input.text,
+    labels: [],
+    linkedItems: [],
+    sourceType: 'manual_paste',
+    tables: [],
+    title: input.title ?? 'Manual context',
+  };
+}
+
 export function getContextValidationMessage(
   context: ExtractedContext,
 ): string | null {

@@ -137,3 +137,14 @@ export async function addRecentContextPackOutput(
 
   return nextOutputs;
 }
+
+export async function removeRecentContextPackOutput(
+  id: string,
+): Promise<RecentContextPackOutput[]> {
+  const currentOutputs = await getRecentContextPackOutputs();
+  const nextOutputs = currentOutputs.filter((output) => output.id !== id);
+
+  await setStoredJson(RECENT_OUTPUTS_STORAGE_KEY, nextOutputs);
+
+  return nextOutputs;
+}

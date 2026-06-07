@@ -4,32 +4,49 @@ ContextPackAI turns browser work context from Jira, Linear, GitHub Issues, selec
 
 ## MVP Flow
 
-- Extract the current page or selected text.
+- Use `Generate` to paste or type content, refresh page text, or capture the visible browser tab as Markdown.
 - Choose an agent type. `planner` is the default, with `ci-expert`, `data-analyst`, `design-architect`, and `security-architect` also available.
 - Generate the matching Markdown through the ContextPackAI backend and OpenRouter.
-- Copy the Markdown, download it as `.md`, or select a recent local output to restore it.
+- Use `Visualize` to create Mermaid graphs or mind maps from saved Markdown outputs.
+- Use `Sequence` to run selected agents in order, passing each output to the next agent.
+- Copy the Markdown, download it as `.md`, or select/delete recent local outputs.
 
-## Capture To Markdown
+## Tabs
 
-The side rail includes a `Capture` tab after `Generate`.
+The side rail order is `Generate`, `Visualize`, `Sequence`, `Access`, `Recent`, and `Support`.
 
+### Generate
+
+- Paste or type content into the editable content field.
+- Refresh page text from the active tab when available.
 - Capture the visible active browser tab as a screenshot.
-- Upload a PNG, JPEG, WebP, or PDF source.
-- Send the captured source to the backend extraction API, which uses OpenRouter multimodal chat completions.
-- Preview the returned Markdown in the tab.
-- Copy or download the Markdown as `.md`.
+- Send the screenshot to the backend extraction API, which uses OpenRouter multimodal chat completions.
+- Append extracted Markdown to the editable content field.
+- Generate, copy, or download the final agent-specific Markdown.
 
-Images are sent as `image_url` data URLs. PDFs are sent as `file.file_data`
-data URLs, and the server defaults the PDF parser plugin to `cloudflare-ai`.
+The previous read-only context preview is removed. The editable content field is the source of truth for generation.
+
+### Visualize
+
+- Select one or more saved Recent outputs.
+- Create an LLM-generated Mermaid graph or mind map through `POST /api/v1/visualizations`.
+- Preview the rendered Mermaid diagram and copy the Mermaid source.
+
+### Sequence
+
+- Select one or more current agent types.
+- Reorder selected agents with move controls.
+- Run the new content synchronously through each selected agent.
+- Pass each step output as the next step input.
+- Save only the final sequence output to Recent.
 
 Privacy and limits:
 
 - Visible-tab capture sends the currently visible browser viewport to the
   backend; it does not capture the whole desktop or other apps.
-- Uploaded images and PDFs are sent to the backend for AI extraction.
-- Sources over 10 MB are rejected.
+- Captured images are sent as `image_url` data URLs.
 - Recent Capture entries store generated Markdown and source metadata only; they do not store original screenshot, image, PDF, or base64 bytes.
-- DOCX, PPTX, arbitrary desktop capture, and full-page scrolling capture are not
+- DOCX, PPTX, PDF upload, arbitrary desktop capture, and full-page scrolling capture are not
   included in v1.
 
 ## Recent Outputs
@@ -39,7 +56,7 @@ The `Recent` tab stores local outputs in a discriminated shape:
 - generation outputs store `agentType`, context snapshot, title, source title, and Markdown
 - capture outputs store source metadata, warnings, title, source title, and Markdown
 
-Selecting a generation output opens `Generate` and restores the agent type, context, and Markdown preview. Selecting a capture output opens `Capture` and restores the source label, warnings, and Markdown preview.
+Selecting a generation output opens `Generate` and restores the agent type, content, and Markdown preview. Selecting a capture output opens `Generate` and restores the captured Markdown into the editable content field. Users can delete outputs they no longer want to persist.
 
 ## Access
 

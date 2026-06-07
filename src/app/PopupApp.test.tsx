@@ -3,8 +3,8 @@ import {
   fireEvent,
   render,
   screen,
-  within,
   waitFor,
+  within,
 } from '@testing-library/react';
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -256,13 +256,22 @@ describe('PopupApp', () => {
       name: 'ContextPackAI sections',
     });
     expect(
-      within(rail).getAllByRole('button').map((button) => button.textContent),
-    ).toEqual(['', '', '', '', '']);
+      within(rail)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['', '', '', '', '', '']);
     expect(
-      within(rail).getAllByRole('button').map((button) =>
-        button.getAttribute('aria-label'),
-      ),
-    ).toEqual(['Generate', 'Capture', 'Access', 'Recent', 'Support']);
+      within(rail)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'Generate',
+      'Visualize',
+      'Sequence',
+      'Access',
+      'Recent',
+      'Support',
+    ]);
 
     expect(
       screen.getByRole('heading', { name: 'Generation Access' }),
@@ -274,10 +283,16 @@ describe('PopupApp', () => {
       screen.getByRole('heading', { name: 'ContextPackAI' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Visualize' }));
 
     expect(
-      screen.getByRole('heading', { name: 'Capture to Markdown' }),
+      screen.getByRole('heading', { name: 'Visualize' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sequence' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Sequence' }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Access' }));
@@ -327,9 +342,9 @@ describe('PopupApp', () => {
         'aria-current',
         'page',
       );
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Saved Key Page\n\nAutomatically extracted after saving the key.',
-      );
+      expect(
+        (screen.getByLabelText('Content') as HTMLTextAreaElement).value,
+      ).toContain('Automatically extracted after saving the key.');
     });
   });
 
@@ -349,9 +364,9 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Initial Page\n\nInitial extracted content.',
-      );
+      expect(
+        (screen.getByLabelText('Content') as HTMLTextAreaElement).value,
+      ).toContain('Initial extracted content.');
     });
 
     await act(async () => {
@@ -360,9 +375,9 @@ describe('PopupApp', () => {
 
     await waitFor(() => {
       expect(chromeStub.executeScript).toHaveBeenCalledTimes(2);
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Updated Page\n\nUpdated extracted content.',
-      );
+      expect(
+        (screen.getByLabelText('Content') as HTMLTextAreaElement).value,
+      ).toContain('Updated extracted content.');
     });
   });
 
@@ -392,10 +407,7 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Chrome Extensions',
-      );
-      expect(screen.getByText('Detected: Manual Context')).toBeInTheDocument();
+      expect(screen.getByLabelText('Content')).toHaveValue('Chrome Extensions');
     });
 
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
@@ -422,20 +434,18 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Manual context',
-      );
+      expect(screen.getByLabelText('Content')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText('Manual paste fallback'), {
+    fireEvent.change(screen.getByLabelText('Content'), {
       target: {
         value: 'Build discount code validation for checkout.',
       },
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Context preview')).toHaveValue(
-        'Title: Manual context\n\nBuild discount code validation for checkout.',
+      expect(screen.getByLabelText('Content')).toHaveValue(
+        'Build discount code validation for checkout.',
       );
       expect(
         screen.getByRole('button', { name: 'Generate Brief' }),
@@ -465,7 +475,7 @@ describe('PopupApp', () => {
     );
   });
 
-  it('captures the visible tab and previews extracted markdown', async () => {
+  it('captures the visible tab from Generate and appends extracted markdown', async () => {
     seedByokApiKey();
     const chromeStub = stubChromeCapture();
     vi.mocked(axios.request)
@@ -483,27 +493,28 @@ describe('PopupApp', () => {
 
     render(<PopupApp />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
-
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Capture to Markdown' }),
+        screen.getByRole('heading', { name: 'ContextPackAI' }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /Capture visible tab/i }),
+        screen.getByRole('button', { name: /Capture screen/i }),
       ).toBeEnabled();
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Capture visible tab/i }),
-    );
+    fireEvent.change(screen.getByLabelText('Content'), {
+      target: {
+        value: 'Existing manual notes.',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Capture screen/i }));
 
     await waitFor(() => {
       expect(chromeStub.captureVisibleTab).toHaveBeenCalledWith(1, {
         format: 'png',
       });
-      expect(screen.getByLabelText('Markdown preview')).toHaveValue(
-        '# Extracted visible tab',
+      expect(screen.getByLabelText('Content')).toHaveValue(
+        'Existing manual notes.\n\n# Extracted visible tab',
       );
     });
 
@@ -524,93 +535,190 @@ describe('PopupApp', () => {
     );
   });
 
-  it('uploads an image source and copies extracted markdown', async () => {
+  it('creates a Mermaid visualization from selected recent outputs', async () => {
     seedByokApiKey();
+    localStorage.setItem(
+      'contextpackai_recent_outputs',
+      JSON.stringify([
+        {
+          agentType: 'planner',
+          context: {
+            attachments: [],
+            codeBlocks: [],
+            comments: [],
+            labels: [],
+            linkedItems: [],
+            sourceType: 'manual',
+            tables: [],
+            title: 'Checkout ticket',
+          },
+          createdAt: '2026-06-06T00:00:00.000Z',
+          id: 'gen_1',
+          kind: 'generation',
+          markdown: '# Checkout brief',
+          sourceTitle: 'Checkout ticket',
+          title: 'Checkout brief',
+        },
+      ]),
+    );
     vi.mocked(axios.request)
       .mockResolvedValueOnce(createAccessCatalogResponse())
       .mockResolvedValueOnce(
         createAxiosResponse({
-          confidence: 'medium',
           createdAt: '2026-06-06T00:00:00.000Z',
-          id: 'ext_upload',
-          markdown: '# Uploaded image',
-          title: 'diagram.png',
+          diagramType: 'graph',
+          id: 'viz_1',
+          mermaid: 'flowchart TD\n  A[Checkout] --> B[Discount validation]',
+          title: 'Checkout graph',
           warnings: [],
         }),
       );
 
     render(<PopupApp />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Visualize' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Upload image or PDF source')).toBeEnabled();
+      expect(screen.getByLabelText(/Checkout brief/i)).toBeInTheDocument();
     });
 
-    const file = new File(['hello'], 'diagram.png', {
-      type: 'image/png',
-    });
-
-    fireEvent.change(screen.getByLabelText('Upload image or PDF source'), {
-      target: {
-        files: [file],
-      },
-    });
+    fireEvent.click(screen.getByLabelText(/Checkout brief/i));
+    fireEvent.click(screen.getByRole('button', { name: /Create graph/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Markdown preview')).toHaveValue(
-        '# Uploaded image',
+      expect(screen.getByLabelText('Mermaid source')).toHaveValue(
+        'flowchart TD\n  A[Checkout] --> B[Discount validation]',
       );
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /^Copy$/i }));
-
-    await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        '# Uploaded image',
-      );
-      expect(screen.getByText('Markdown copied.')).toBeInTheDocument();
-    });
-  });
-
-  it('keeps capture available with OpenRouter BYOK access', async () => {
-    vi.mocked(axios.request).mockResolvedValueOnce(
-      createAxiosResponse({
-        cacheTtlSeconds: 86_400,
-        generatedAt: '2026-04-27T00:00:00.000Z',
-        providers: [
-          {
-            defaultModelId: 'openrouter/auto',
-            id: 'openrouter',
-            label: 'OpenRouter',
-            models: [{ id: 'openrouter/auto', label: 'OpenRouter Auto' }],
-          },
-        ],
-        sharedHostedOffering: {
-          enabled: true,
-          label: 'Author Shared Key',
-          plan: 'pro',
-          priceAudMonthly: 2,
-        },
+    expect(axios.request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          diagramType: 'graph',
+          items: [
+            expect.objectContaining({
+              id: 'gen_1',
+              markdown: '# Checkout brief',
+            }),
+          ],
+        }),
+        method: 'POST',
+        url: 'http://localhost:3000/api/v1/visualizations',
       }),
     );
-    localStorage.setItem(
-      'byok_access_config',
-      JSON.stringify({
-        apiKey: 'sk-test',
-        provider: 'openrouter',
-        selectedModel: 'openrouter/auto',
+  });
+
+  it('runs selected sequence agents and persists only the final output', async () => {
+    seedByokApiKey();
+    vi.mocked(axios.request)
+      .mockResolvedValueOnce(createAccessCatalogResponse())
+      .mockResolvedValueOnce(
+        createAxiosResponse({
+          confidence: 'high',
+          createdAt: '2026-06-06T00:00:00.000Z',
+          id: 'gen_step_1',
+          agentType: 'planner',
+          markdown: '# Planner output',
+          missingInformation: [],
+          questions: [],
+          title: 'Planner output',
+          warnings: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createAxiosResponse({
+          confidence: 'high',
+          createdAt: '2026-06-06T00:01:00.000Z',
+          id: 'gen_step_2',
+          agentType: 'ci-expert',
+          markdown: '# CI output',
+          missingInformation: [],
+          questions: [],
+          title: 'CI output',
+          warnings: [],
+        }),
+      );
+
+    render(<PopupApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sequence' }));
+
+    fireEvent.change(screen.getByLabelText('New content'), {
+      target: {
+        value: 'Build checkout validation.',
+      },
+    });
+    fireEvent.click(screen.getByLabelText('CI Expert'));
+    fireEvent.click(screen.getByRole('button', { name: 'Run sequence' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Sequence complete. Final output saved to Recent.'),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('CI Expert output')).toHaveValue(
+        '# CI output',
+      );
+    });
+
+    const storedOutputs = JSON.parse(
+      localStorage.getItem('contextpackai_recent_outputs') ?? '[]',
+    ) as Array<{ id: string; markdown: string }>;
+
+    expect(storedOutputs).toEqual([
+      expect.objectContaining({
+        id: 'gen_step_2',
+        markdown: '# CI output',
       }),
+    ]);
+  });
+
+  it('deletes recent outputs from local history', async () => {
+    vi.mocked(axios.request).mockResolvedValueOnce(
+      createAccessCatalogResponse(),
+    );
+    localStorage.setItem(
+      'contextpackai_recent_outputs',
+      JSON.stringify([
+        {
+          agentType: 'planner',
+          context: {
+            attachments: [],
+            codeBlocks: [],
+            comments: [],
+            labels: [],
+            linkedItems: [],
+            sourceType: 'manual',
+            tables: [],
+            title: 'Ticket one',
+          },
+          createdAt: '2026-06-06T00:00:00.000Z',
+          id: 'gen_1',
+          kind: 'generation',
+          markdown: '# One',
+          sourceTitle: 'Ticket one',
+          title: 'One',
+        },
+      ]),
     );
 
     render(<PopupApp />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Recent' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete One' })).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete One' }));
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /Capture visible tab/i }),
-      ).toBeEnabled();
+        screen.getByText(
+          'Generated briefs and captured Markdown will appear here after your first successful run.',
+        ),
+      ).toBeInTheDocument();
     });
+
+    expect(localStorage.getItem('contextpackai_recent_outputs')).toBe('[]');
   });
 });

@@ -1,9 +1,10 @@
 import {
+  Boxes,
   FileText,
   HeartHandshake,
   History,
   KeyRound,
-  ScanText,
+  Workflow,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -13,9 +14,7 @@ import {
   type ContextPackActionClickedMessage,
 } from '@/shared/api';
 import type {
-  RecentCaptureOutput,
   RecentContextPackOutput,
-  RecentGenerationOutput,
 } from '@/shared/model/contextPack';
 
 import { ActivePanelContent, type ActivePanel } from './panels';
@@ -23,10 +22,11 @@ import { AppQueryProvider } from './queryClient';
 
 const panelLabels: Record<ActivePanel, string> = {
   access: 'Access',
-  capture: 'Capture',
   generate: 'Generate',
   recent: 'Recent',
+  sequence: 'Sequence',
   support: 'Support',
+  visualize: 'Visualize',
 };
 
 const railItems = [
@@ -36,9 +36,14 @@ const railItems = [
     label: panelLabels.generate,
   },
   {
-    icon: ScanText,
-    id: 'capture',
-    label: panelLabels.capture,
+    icon: Boxes,
+    id: 'visualize',
+    label: panelLabels.visualize,
+  },
+  {
+    icon: Workflow,
+    id: 'sequence',
+    label: panelLabels.sequence,
   },
   {
     icon: KeyRound,
@@ -74,10 +79,8 @@ function PopupAppContent() {
   const hasResolvedInitialPanel = useRef(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>('access');
   const [extractionRequestId, setExtractionRequestId] = useState(0);
-  const [restoredCaptureOutput, setRestoredCaptureOutput] =
-    useState<RecentCaptureOutput | null>(null);
-  const [restoredGenerationOutput, setRestoredGenerationOutput] =
-    useState<RecentGenerationOutput | null>(null);
+  const [restoredOutput, setRestoredOutput] =
+    useState<RecentContextPackOutput | null>(null);
 
   useEffect(() => {
     if (!isApiKeyReady || hasResolvedInitialPanel.current) {
@@ -95,16 +98,7 @@ function PopupAppContent() {
 
   function handleRecentOutputSelected(output: RecentContextPackOutput) {
     hasResolvedInitialPanel.current = true;
-
-    if (output.kind === 'capture') {
-      setRestoredCaptureOutput(output);
-      setRestoredGenerationOutput(null);
-      setActivePanel('capture');
-      return;
-    }
-
-    setRestoredGenerationOutput(output);
-    setRestoredCaptureOutput(null);
+    setRestoredOutput(output);
     setActivePanel('generate');
   }
 
@@ -157,8 +151,7 @@ function PopupAppContent() {
               extractionRequestId={extractionRequestId}
               onAccessConfigured={openGenerateAndExtract}
               onRecentOutputSelected={handleRecentOutputSelected}
-              restoredCaptureOutput={restoredCaptureOutput}
-              restoredGenerationOutput={restoredGenerationOutput}
+              restoredOutput={restoredOutput}
             />
           </div>
 

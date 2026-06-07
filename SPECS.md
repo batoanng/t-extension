@@ -253,31 +253,33 @@ The business promise is the same regardless of access mode:
 
 ---
 
-## 10. Capture To Markdown
+## 10. Extension Workflow Tabs
 
-Capture to Markdown is a second extension tab, positioned after `Generate` in the side rail.
+The extension side rail is ordered as `Generate`, `Visualize`, `Sequence`, `Access`, `Recent`, and `Support`.
 
-### User capability
+### Generate capability
 
 Users can:
 
+- type or paste content into the editable content field
+- refresh text extracted from the active page when available
 - capture the visible active browser tab as an image
-- upload a PNG, JPEG, WebP, or PDF source
 - send the source to the backend extraction API, which uses OpenRouter multimodal chat completions
-- view the extracted Markdown in the Capture tab
-- copy or download the Markdown as `.md`
+- append extracted Markdown into the same editable content field
+- choose an agent type and generate Markdown from the editable content
+- copy or download generated Markdown as `.md`
 
 ### Extraction behavior
 
-The feature converts source material into faithful Markdown. It must not create an agent-specific brief, summarize the source, or store original screenshot/file bytes in Recent outputs.
+Screen capture converts source material into faithful Markdown before it is appended to the editable Generate content. It must not create an agent-specific brief, summarize the source, or store original screenshot bytes in Recent outputs.
 
 ### Access behavior
 
-Capture to Markdown uses OpenRouter for BYOK and shared hosted access.
+Capture, generation, visualization, and sequence workflows use OpenRouter for BYOK and shared hosted access.
 
 - Images are sent as `image_url` data URLs.
-- PDFs are sent as `file.file_data` data URLs.
-- The backend defaults the OpenRouter PDF parser plugin to `cloudflare-ai`.
+- Visualization uses `POST /api/v1/visualizations` and returns Mermaid source.
+- Sequence uses the existing generation endpoint once per selected agent.
 
 ### Privacy and scope
 
@@ -285,16 +287,23 @@ Visible-tab capture sends the currently visible browser viewport to the backend.
 It does not capture arbitrary desktop windows, other apps, or full-page scrolled
 content.
 
-Uploaded images and PDFs are sent to the backend for AI extraction. Sources over
-10 MB are rejected.
-
 ### V1 limitations
 
-The first version does not support DOCX, PPTX, full-page capture, arbitrary desktop capture, local-only OCR, or storing original captured bytes in Recent outputs.
+The first version does not support DOCX, PPTX, PDF upload, full-page capture, arbitrary desktop capture, local-only OCR, or storing original captured bytes in Recent outputs.
+
+### Visualize behavior
+
+Users can select multiple saved Markdown outputs and create either a graph or mind map. The backend returns Mermaid source, and the extension renders the diagram and shows copyable Mermaid text.
+
+### Sequence behavior
+
+Users can select current extension agents, arrange their order, and run new content through them synchronously. Each step output becomes the next step input. Only the final step output is saved to Recent.
 
 ### Recent behavior
 
-Recent outputs are selectable. Selecting a generation output opens `Generate` and restores the saved agent type, context snapshot, and Markdown preview. Selecting a capture output opens `Capture` and restores the source label, warnings, and Markdown preview.
+Recent outputs are selectable and deletable. Selecting a generation output opens `Generate` and restores the saved agent type, editable content, and Markdown preview. Selecting a capture output opens `Generate` and restores the captured Markdown into the editable content field.
+
+The read-only context preview section is removed. The editable content field is the source of truth for what will be sent to generation.
 
 The product should not frame Prompt Optimizer as locked to a single downstream agent type. It should support broader use cases such as:
 

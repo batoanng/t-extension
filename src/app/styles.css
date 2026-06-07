@@ -152,10 +152,10 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border-left: 1px solid var(--border-subtle);
   background: #3b3b3b;
-  padding: 12px 8px;
+  padding: 10px 8px;
 }
 
 .rail-button {
@@ -164,7 +164,7 @@ button {
   justify-content: center;
   width: 44px;
   min-width: 44px;
-  height: 44px;
+  height: 40px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
@@ -226,6 +226,8 @@ button {
 .stack,
 .access-content,
 .recent-output-list,
+.agent-list,
+.sequence-step-list,
 .coffee-box,
 .about-grid {
   display: grid;
@@ -602,6 +604,27 @@ button {
   text-align: left;
 }
 
+.recent-output-row {
+  display: grid;
+  align-items: stretch;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 36px;
+}
+
+.recent-delete-button {
+  width: 36px;
+  min-width: 36px;
+  height: auto;
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.recent-delete-button:hover:not(:disabled),
+.recent-delete-button:focus-visible {
+  color: var(--danger);
+}
+
 .recent-output-button span,
 .recent-output-button small {
   overflow: hidden;
@@ -611,6 +634,88 @@ button {
 
 .recent-output-button small {
   color: var(--text-soft);
+}
+
+.selectable-output-row,
+.agent-row,
+.sequence-step {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.selectable-output-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  padding: 11px 12px;
+}
+
+.selectable-output-row input {
+  width: 16px;
+  height: 16px;
+}
+
+.selectable-output-row span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.selectable-output-row strong,
+.selectable-output-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectable-output-row small {
+  color: var(--text-soft);
+}
+
+.mermaid-preview {
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.agent-row,
+.sequence-step {
+  padding: 10px 12px;
+}
+
+.agent-row,
+.sequence-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-order-controls {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.sequence-step {
+  display: grid;
+  gap: 10px;
+}
+
+.sequence-step-header strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .about-grid {

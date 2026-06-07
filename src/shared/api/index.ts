@@ -21,3 +21,5 @@ export { extractMarkdown } from './extractionApi';
 export { useExtractMarkdownMutation } from './extractionHooks';
 export { generateBrief } from './generationApi';
 export { useGenerateBriefMutation } from './generationHooks';
+export { createVisualization } from './visualizationApi';
+export { useCreateVisualizationMutation } from './visualizationHooks';

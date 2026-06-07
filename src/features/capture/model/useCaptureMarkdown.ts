@@ -100,11 +100,11 @@ export function useCaptureMarkdown() {
           title: nextResult.title,
           warnings: nextResult.warnings,
         });
-        return true;
+        return nextResult;
       } catch (error) {
         setErrorMessage(getInitialErrorMessage(error));
         setStatus('error');
-        return false;
+        return null;
       } finally {
         clearTimeout(timeoutId);
       }

@@ -33,6 +33,7 @@ type GenerateBriefAction =
   | { errorMessage: string; type: 'generate-failed' }
   | { recentOutputs: RecentContextPackOutput[]; type: 'recent-loaded' }
   | { result: GenerateBriefResponse; type: 'result-restored' }
+  | { type: 'result-cleared' }
   | { type: 'copy-succeeded' }
   | { errorMessage: string; type: 'copy-failed' };
 
@@ -83,6 +84,14 @@ function reducer(
         errorMessage: null,
         result: action.result,
         status: 'success',
+      };
+    case 'result-cleared':
+      return {
+        ...state,
+        copyStatus: 'idle',
+        errorMessage: null,
+        result: null,
+        status: 'idle',
       };
     case 'copy-succeeded':
       return {
@@ -154,9 +163,13 @@ export function useGenerateBrief() {
       type: 'result-restored',
     });
   }, []);
+  const clearResult = useCallback(() => {
+    dispatch({ type: 'result-cleared' });
+  }, []);
 
   return {
     ...state,
+    clearResult,
     copyMarkdown,
     loadRecentOutputs,
     restoreGenerationOutput,

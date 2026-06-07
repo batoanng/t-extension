@@ -403,6 +403,24 @@ export function getAccessGateMessage(reason: AccessGateBlockedReason): string {
   }
 }
 
+export function isAccessGateErrorReason(
+  reason: AccessGateBlockedReason,
+): boolean {
+  switch (reason) {
+    case 'loading':
+    case 'catalog-loading':
+    case 'subscription-loading':
+      return false;
+    case 'catalog-unavailable':
+    case 'missing-api-key':
+    case 'missing-model-config':
+    case 'sign-in-required':
+    case 'subscription-required':
+    case 'offering-unavailable':
+      return true;
+  }
+}
+
 function toAccessIssue(reason: AccessGateBlockedReason): AccessIssue | null {
   switch (reason) {
     case 'loading':
