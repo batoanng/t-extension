@@ -16,6 +16,9 @@ export {
   refreshAuthSession,
   requestMagicLink,
 } from './accessApi';
+export { fetchAgents } from './agentsApi';
+export { AGENTS_QUERY_KEY, useAgents } from './agentsHooks';
+export type { UseAgentsResult } from './agentsHooks';
 export { createDonationCheckoutSession } from './donationApi';
 export { extractMarkdown } from './extractionApi';
 export { useExtractMarkdownMutation } from './extractionHooks';

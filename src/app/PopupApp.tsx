@@ -143,7 +143,7 @@ function PopupAppContent() {
 
   return (
     <main className="popup-shell">
-      <section className="app-frame" aria-label="ContextPackAI side panel">
+      <section className="app-frame" aria-label="OneAgent side panel">
         <div className="panel-layout">
           <div className="panel-content">
             <ActivePanelContent
@@ -155,7 +155,7 @@ function PopupAppContent() {
             />
           </div>
 
-          <nav className="rail-nav" aria-label="ContextPackAI sections">
+          <nav className="rail-nav" aria-label="OneAgent sections">
             {railItems.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activePanel;

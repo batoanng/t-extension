@@ -9,7 +9,7 @@ export function SupportPanel() {
             Support
           </h2>
           <p className="panel-subtitle">
-            Keep ContextPackAI useful and easy to maintain.
+            Keep OneAgent useful and easy to maintain.
           </p>
         </div>
       </div>

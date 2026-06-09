@@ -1,12 +1,13 @@
-# ContextPackAI Chrome Extension
+# OneAgent Chrome Extension
 
-ContextPackAI turns browser work context from Jira, Linear, GitHub Issues, selected text, screenshots, uploads, or manual notes into agent-specific Markdown for software teams.
+OneAgent lets developers easily run the most effective public AI agents over their page content or screen captures, visualize that output as diagrams/mind maps, and chain agents into sequences.
 
 ## MVP Flow
 
 - Use `Generate` to paste or type content, refresh page text, or capture the visible browser tab as Markdown.
-- Choose an agent type. `planner` is the default, with `ci-expert`, `data-analyst`, `design-architect`, and `security-architect` also available.
-- Generate the matching Markdown through the ContextPackAI backend and OpenRouter.
+- Choose an agent from the backend-owned agent list. `planner` is the default, with `ci-expert`, `data-analyst`, `design-architect`, and `security-architect` also available.
+- Open the selected agent's full details in the companion web app with `View agent details`.
+- Generate the matching Markdown through the OneAgent backend and OpenRouter.
 - Use `Visualize` to create Mermaid graphs or mind maps from saved Markdown outputs.
 - Use `Sequence` to run selected agents in order, passing each output to the next agent.
 - Copy the Markdown, download it as `.md`, or select/delete recent local outputs.
@@ -34,7 +35,7 @@ The previous read-only context preview is removed. The editable content field is
 
 ### Sequence
 
-- Select one or more current agent types.
+- Select one or more agents from the backend-owned agent list.
 - Reorder selected agents with move controls.
 - Run the new content synchronously through each selected agent.
 - Pass each step output as the next step input.

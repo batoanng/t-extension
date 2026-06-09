@@ -29,6 +29,9 @@ export const sourceTypes = [
   'generic_web',
 ] as const;
 
+// Known agent ids. The authoritative agent list is now served by the backend
+// (`GET /api/v1/agents`); this constant is only used for local storage
+// validation and as an offline fallback for the agent selectors.
 export const agentTypes = [
   'ci-expert',
   'data-analyst',
@@ -62,7 +65,10 @@ export const MAX_RECENT_OUTPUTS = 5;
 export const DEFAULT_AGENT_TYPE = 'planner';
 
 export type SourceType = (typeof sourceTypes)[number];
-export type AgentType = (typeof agentTypes)[number];
+// The agent list is backend-driven, so an agent id can be any string. The
+// values in `agentTypes` are the known/built-in ids used as an offline fallback.
+export type AgentType = string;
+export type KnownAgentType = (typeof agentTypes)[number];
 export type GenerationErrorCode = (typeof generationErrorCodes)[number];
 export type GenerationMetadataProvider =
   (typeof generationMetadataProviders)[number];
@@ -106,7 +112,7 @@ export const ExtractedContextSchema = z.object({
 
 export const GenerateBriefRequestSchema = z
   .object({
-    agentType: z.enum(agentTypes).default(DEFAULT_AGENT_TYPE),
+    agentType: z.string().trim().min(1).default(DEFAULT_AGENT_TYPE),
     context: ExtractedContextSchema,
     credentialMode: z.enum(['byok', 'subscription']).default('byok'),
     options: z
@@ -159,7 +165,7 @@ export const GenerateBriefResponseSchema = z.object({
   confidence: z.enum(['low', 'medium', 'high']),
   createdAt: z.string().datetime(),
   id: z.string().trim().min(1),
-  agentType: z.enum(agentTypes),
+  agentType: z.string().trim().min(1),
   markdown: z.string().trim().min(1),
   missingInformation: z.array(MissingInformationItemSchema).default([]),
   questions: z.array(z.string().trim()).default([]),
@@ -223,16 +229,69 @@ export class GenerationApiError extends Error {
   }
 }
 
-export const agentTypeOptions: Array<{
+export const AgentSchema = z.object({
+  category: z.string().trim().default(''),
+  description: z.string().trim().default(''),
+  id: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  tags: z.array(z.string().trim()).default([]),
+});
+
+export const AgentListResponseSchema = z.object({
+  agents: z.array(AgentSchema),
+});
+
+export type Agent = z.infer<typeof AgentSchema>;
+export type AgentListResponse = z.infer<typeof AgentListResponseSchema>;
+
+export interface AgentOption {
   label: string;
   value: AgentType;
-}> = [
-  { label: 'Planner', value: 'planner' },
-  { label: 'CI Expert', value: 'ci-expert' },
-  { label: 'Data Analyst', value: 'data-analyst' },
-  { label: 'Design Architect', value: 'design-architect' },
-  { label: 'Security Architect', value: 'security-architect' },
+}
+
+// Offline/loading fallback used until the backend agent list resolves. The
+// authoritative list comes from `GET /api/v1/agents` via `useAgents`.
+export const fallbackAgents: Agent[] = [
+  {
+    category: 'planning',
+    description: 'Turn context into a structured implementation plan.',
+    id: 'planner',
+    name: 'Planner',
+    tags: [],
+  },
+  {
+    category: 'ci',
+    description: 'Reason about CI/CD pipelines and build failures.',
+    id: 'ci-expert',
+    name: 'CI Expert',
+    tags: [],
+  },
+  {
+    category: 'data',
+    description: 'Analyze data and surface insights.',
+    id: 'data-analyst',
+    name: 'Data Analyst',
+    tags: [],
+  },
+  {
+    category: 'design',
+    description: 'Shape design and architecture decisions.',
+    id: 'design-architect',
+    name: 'Design Architect',
+    tags: [],
+  },
+  {
+    category: 'security',
+    description: 'Review work for security architecture concerns.',
+    id: 'security-architect',
+    name: 'Security Architect',
+    tags: [],
+  },
 ];
+
+export function toAgentOption(agent: Agent): AgentOption {
+  return { label: agent.name, value: agent.id };
+}
 
 export function getContextPlainText(context: ExtractedContext): string {
   return [

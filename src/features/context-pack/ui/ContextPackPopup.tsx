@@ -1,13 +1,16 @@
-import { Camera, Copy, Download, RefreshCw } from 'lucide-react';
+import { Camera, Copy, Download, ExternalLink, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
 import { useCaptureMarkdown } from '@/features/capture/model/useCaptureMarkdown';
+import { useAgents } from '@/shared/api';
+import { env } from '@/shared/config';
 import {
   getLastAgentType,
   setLastAgentType,
 } from '@/shared/lib/contextPackStorage';
 import { downloadMarkdown } from '@/shared/lib/markdownDownload';
+import { openExternalUrl } from '@/shared/lib/openExternalUrl';
 import {
   getAccessGate,
   getAccessGateMessage,
@@ -17,7 +20,6 @@ import {
   type AgentType,
   DEFAULT_AGENT_TYPE,
   type RecentContextPackOutput,
-  agentTypeOptions,
   createManualExtractedContext,
   getContextPlainText,
   getContextValidationMessage,
@@ -79,6 +81,11 @@ export function ContextPackPopup({
     null,
   );
   const accessStore = useAccessStore();
+  const {
+    agentOptions,
+    isLoading: agentsLoading,
+    isResolved: agentsResolved,
+  } = useAgents();
   const {
     copyMarkdown,
     copyStatus,
@@ -251,6 +258,10 @@ export function ContextPackPopup({
     setManualContext(value);
   }
 
+  function handleViewAgentDetails() {
+    openExternalUrl(`${env.webBaseUrl}/agents/${agentType}`);
+  }
+
   async function handleRefreshContextClick() {
     await refreshContext();
   }
@@ -320,7 +331,7 @@ export function ContextPackPopup({
       <div className="panel-header">
         <div>
           <h2 className="panel-title" id="context-pack-title">
-            ContextPackAI
+            OneAgent
           </h2>
           <p className="panel-subtitle">
             Paste, type, or capture content, then turn it into an agent-specific
@@ -364,23 +375,40 @@ export function ContextPackPopup({
             <label className="field-label" htmlFor="agent-type">
               Agent type
             </label>
-            <select
-              className="select-input"
-              disabled={status === 'loading'}
-              id="agent-type"
-              onChange={(event) => {
-                const nextAgentType = event.target.value as AgentType;
-                setAgentType(nextAgentType);
-                void setLastAgentType(nextAgentType);
-              }}
-              value={agentType}
-            >
-              {agentTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="agent-selector-row">
+              <select
+                className="select-input"
+                disabled={status === 'loading' || agentOptions.length === 0}
+                id="agent-type"
+                onChange={(event) => {
+                  const nextAgentType = event.target.value as AgentType;
+                  setAgentType(nextAgentType);
+                  void setLastAgentType(nextAgentType);
+                }}
+                value={agentType}
+              >
+                {agentOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="button button-secondary compact-button"
+                onClick={handleViewAgentDetails}
+                title="View agent details in the OneAgent web app"
+                type="button"
+              >
+                View agent details
+                <ExternalLink size={14} strokeWidth={2.2} />
+              </button>
+            </div>
+            {agentsLoading && !agentsResolved ? (
+              <span className="field-hint">Loading agents…</span>
+            ) : null}
+            {agentOptions.length === 0 ? (
+              <span className="field-hint">No agents available.</span>
+            ) : null}
           </div>
         </div>
 

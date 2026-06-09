@@ -5,7 +5,6 @@ import {
   MAX_RECENT_OUTPUTS,
   type RecentCaptureOutput,
   type RecentContextPackOutput,
-  agentTypes,
 } from '@/shared/model/contextPack';
 
 import { getStoredJson, getStoredString, setStoredJson, setStoredString } from './chromeStorage';
@@ -16,8 +15,8 @@ export const RECENT_OUTPUTS_STORAGE_KEY = 'contextpackai_recent_outputs';
 export async function getLastAgentType(): Promise<AgentType> {
   const storedAgentType = await getStoredString(LAST_AGENT_TYPE_STORAGE_KEY);
 
-  return agentTypes.includes(storedAgentType as AgentType)
-    ? (storedAgentType as AgentType)
+  return storedAgentType && storedAgentType.length > 0
+    ? storedAgentType
     : DEFAULT_AGENT_TYPE;
 }
 
@@ -60,7 +59,8 @@ function coerceRecentOutput(output: unknown): RecentContextPackOutput | null {
 
   if (
     candidate.kind === 'generation' &&
-    agentTypes.includes(candidate.agentType as AgentType) &&
+    typeof candidate.agentType === 'string' &&
+    candidate.agentType.length > 0 &&
     candidate.context &&
     typeof candidate.context === 'object'
   ) {

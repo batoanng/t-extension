@@ -5,7 +5,7 @@ export function createMarkdownFileName(title: string): string {
     .replace(/^-|-$/g, '')
     .slice(0, 64);
 
-  return `${slug || 'contextpackai-markdown'}.md`;
+  return `${slug || 'oneagent-markdown'}.md`;
 }
 
 export function downloadMarkdown(title: string, markdown: string) {

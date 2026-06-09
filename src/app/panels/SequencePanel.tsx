@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, GripVertical, Play } from 'lucide-react';
 import { type DragEvent, useMemo, useState } from 'react';
 
 import { useAccessStore } from '@/features/access/model/useAccessStore';
-import { generateBrief } from '@/shared/api';
+import { generateBrief, useAgents } from '@/shared/api';
 import { addRecentContextPackOutput } from '@/shared/lib/contextPackStorage';
 import {
   getAccessGate,
@@ -10,8 +10,8 @@ import {
   isAccessGateErrorReason,
 } from '@/shared/model/access';
 import {
+  type AgentOption,
   type AgentType,
-  agentTypeOptions,
   createManualExtractedContext,
   getContextValidationMessage,
 } from '@/shared/model/contextPack';
@@ -26,15 +26,18 @@ interface SequenceStep {
   title: string;
 }
 
-function getAgentLabel(agentType: AgentType): string {
+function getAgentLabel(
+  agentOptions: AgentOption[],
+  agentType: AgentType,
+): string {
   return (
-    agentTypeOptions.find((option) => option.value === agentType)?.label ??
+    agentOptions.find((option) => option.value === agentType)?.label ??
     agentType
   );
 }
 
-function getAgentOption(agentType: AgentType) {
-  return agentTypeOptions.find((option) => option.value === agentType);
+function getAgentOption(agentOptions: AgentOption[], agentType: AgentType) {
+  return agentOptions.find((option) => option.value === agentType);
 }
 
 function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
@@ -48,6 +51,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
 export function SequencePanel() {
   const accessStore = useAccessStore();
   const accessGate = getAccessGate(accessStore);
+  const { agentOptions } = useAgents();
   const [inputText, setInputText] = useState('');
   const [selectedAgents, setSelectedAgents] = useState<AgentType[]>([
     'planner',
@@ -164,7 +168,7 @@ export function SequencePanel() {
       agentType,
       markdown: '',
       status: 'idle',
-      title: getAgentLabel(agentType),
+      title: getAgentLabel(agentOptions, agentType),
     }));
 
     setSteps(nextSteps);
@@ -181,7 +185,7 @@ export function SequencePanel() {
 
         const context = createManualExtractedContext({
           text: currentText,
-          title: `${getAgentLabel(agentType)} sequence input`,
+          title: `${getAgentLabel(agentOptions, agentType)} sequence input`,
         });
         const result = await generateBrief({
           access,
@@ -305,11 +309,9 @@ export function SequencePanel() {
           <div className="agent-list" aria-label="Sequence agents">
             {[
               ...selectedAgents
-                .map((agentType) => getAgentOption(agentType))
-                .filter((option): option is (typeof agentTypeOptions)[number] =>
-                  Boolean(option),
-                ),
-              ...agentTypeOptions.filter(
+                .map((agentType) => getAgentOption(agentOptions, agentType))
+                .filter((option): option is AgentOption => Boolean(option)),
+              ...agentOptions.filter(
                 (option) => !selectedAgents.includes(option.value),
               ),
             ].map((option) => {
@@ -415,13 +417,13 @@ export function SequencePanel() {
               <article className="sequence-step" key={`${step.agentType}-${index}`}>
                 <div className="sequence-step-header">
                   <strong>
-                    {index + 1}. {getAgentLabel(step.agentType)}
+                    {index + 1}. {getAgentLabel(agentOptions, step.agentType)}
                   </strong>
                   <span className="meta-pill">{step.status}</span>
                 </div>
                 {step.markdown ? (
                   <textarea
-                    aria-label={`${getAgentLabel(step.agentType)} output`}
+                    aria-label={`${getAgentLabel(agentOptions, step.agentType)} output`}
                     className="text-area markdown-preview"
                     readOnly
                     value={step.markdown}

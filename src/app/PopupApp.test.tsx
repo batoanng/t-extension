@@ -34,6 +34,94 @@ function createAxiosResponse<T>(data: T, status = 200) {
   };
 }
 
+function createAgentsResponse() {
+  return createAxiosResponse({
+    agents: [
+      {
+        category: 'planning',
+        description: 'Plan work.',
+        id: 'planner',
+        name: 'Planner',
+        tags: [],
+      },
+      {
+        category: 'ci',
+        description: 'CI expertise.',
+        id: 'ci-expert',
+        name: 'CI Expert',
+        tags: [],
+      },
+      {
+        category: 'data',
+        description: 'Data analysis.',
+        id: 'data-analyst',
+        name: 'Data Analyst',
+        tags: [],
+      },
+      {
+        category: 'design',
+        description: 'Design architecture.',
+        id: 'design-architect',
+        name: 'Design Architect',
+        tags: [],
+      },
+      {
+        category: 'security',
+        description: 'Security architecture.',
+        id: 'security-architect',
+        name: 'Security Architect',
+        tags: [],
+      },
+    ],
+  });
+}
+
+/**
+ * Routes mocked axios calls by request URL so tests do not depend on call
+ * ordering. The agents and access-catalog GETs fire on mount in an
+ * indeterminate order relative to feature requests, so they are matched by
+ * URL while per-feature POST responses are supplied via `featureResponses`.
+ */
+function routeAxios(
+  featureResponses: Partial<
+    Record<'extraction' | 'generation' | 'visualization', unknown[]>
+  > = {},
+) {
+  const queues = {
+    extraction: [...(featureResponses.extraction ?? [])],
+    generation: [...(featureResponses.generation ?? [])],
+    visualization: [...(featureResponses.visualization ?? [])],
+  };
+
+  vi.mocked(axios.request).mockImplementation(
+    async (config: { url?: string } = {}) => {
+      const url = config.url ?? '';
+
+      if (url.includes('/api/v1/agents')) {
+        return createAgentsResponse();
+      }
+
+      if (url.includes('/api/v1/access/catalog')) {
+        return createAccessCatalogResponse();
+      }
+
+      if (url.includes('/api/v1/generations')) {
+        return queues.generation.shift() ?? createAccessCatalogResponse();
+      }
+
+      if (url.includes('/api/v1/extractions')) {
+        return queues.extraction.shift() ?? createAccessCatalogResponse();
+      }
+
+      if (url.includes('/api/v1/visualizations')) {
+        return queues.visualization.shift() ?? createAccessCatalogResponse();
+      }
+
+      return createAccessCatalogResponse();
+    },
+  );
+}
+
 function createAccessCatalogResponse() {
   return createAxiosResponse({
     cacheTtlSeconds: 86_400,
@@ -217,7 +305,7 @@ describe('PopupApp', () => {
     __resetAccessStoreForTests();
     vi.clearAllMocks();
     vi.mocked(axios.request).mockReset();
-    vi.mocked(axios.request).mockResolvedValue(createAccessCatalogResponse());
+    routeAxios();
     Object.defineProperty(globalThis, 'open', {
       configurable: true,
       value: vi.fn(),
@@ -242,14 +330,14 @@ describe('PopupApp', () => {
     );
   });
 
-  it('defaults to ContextPackAI when a key is already configured', async () => {
+  it('defaults to OneAgent when a key is already configured', async () => {
     seedByokApiKey();
 
     render(<PopupApp />);
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'ContextPackAI' }),
+        screen.getByRole('heading', { name: 'OneAgent' }),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: 'Generate' })).toHaveAttribute(
@@ -276,7 +364,7 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     const rail = screen.getByRole('navigation', {
-      name: 'ContextPackAI sections',
+      name: 'OneAgent sections',
     });
     expect(
       within(rail)
@@ -303,7 +391,7 @@ describe('PopupApp', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
 
     expect(
-      screen.getByRole('heading', { name: 'ContextPackAI' }),
+      screen.getByRole('heading', { name: 'OneAgent' }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Visualize' }));
@@ -393,7 +481,7 @@ describe('PopupApp', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'ContextPackAI' }),
+        screen.getByRole('heading', { name: 'OneAgent' }),
       ).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Generate' })).toHaveAttribute(
         'aria-current',
@@ -472,9 +560,8 @@ describe('PopupApp', () => {
 
   it('generates a developer brief from manually pasted context', async () => {
     seedByokApiKey();
-    vi.mocked(axios.request)
-      .mockResolvedValueOnce(createAccessCatalogResponse())
-      .mockResolvedValueOnce(
+    routeAxios({
+      generation: [
         createAxiosResponse({
           confidence: 'high',
           createdAt: '2026-05-08T00:00:00.000Z',
@@ -486,7 +573,8 @@ describe('PopupApp', () => {
           title: 'Developer Implementation Brief',
           warnings: [],
         }),
-      );
+      ],
+    });
 
     render(<PopupApp />);
 
@@ -535,9 +623,8 @@ describe('PopupApp', () => {
   it('captures the visible tab from Generate and appends extracted markdown', async () => {
     seedByokApiKey();
     const chromeStub = stubChromeCapture();
-    vi.mocked(axios.request)
-      .mockResolvedValueOnce(createAccessCatalogResponse())
-      .mockResolvedValueOnce(
+    routeAxios({
+      extraction: [
         createAxiosResponse({
           confidence: 'high',
           createdAt: '2026-06-06T00:00:00.000Z',
@@ -546,13 +633,14 @@ describe('PopupApp', () => {
           title: 'Visible Product Spec',
           warnings: [],
         }),
-      );
+      ],
+    });
 
     render(<PopupApp />);
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'ContextPackAI' }),
+        screen.getByRole('heading', { name: 'OneAgent' }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /Capture screen/i }),
@@ -618,9 +706,8 @@ describe('PopupApp', () => {
         },
       ]),
     );
-    vi.mocked(axios.request)
-      .mockResolvedValueOnce(createAccessCatalogResponse())
-      .mockResolvedValueOnce(
+    routeAxios({
+      visualization: [
         createAxiosResponse({
           createdAt: '2026-06-06T00:00:00.000Z',
           diagramType: 'graph',
@@ -629,7 +716,8 @@ describe('PopupApp', () => {
           title: 'Checkout graph',
           warnings: [],
         }),
-      );
+      ],
+    });
 
     render(<PopupApp />);
 
@@ -667,9 +755,8 @@ describe('PopupApp', () => {
 
   it('runs selected sequence agents and persists only the final output', async () => {
     seedByokApiKey();
-    vi.mocked(axios.request)
-      .mockResolvedValueOnce(createAccessCatalogResponse())
-      .mockResolvedValueOnce(
+    routeAxios({
+      generation: [
         createAxiosResponse({
           confidence: 'high',
           createdAt: '2026-06-06T00:00:00.000Z',
@@ -681,8 +768,6 @@ describe('PopupApp', () => {
           title: 'CI output',
           warnings: [],
         }),
-      )
-      .mockResolvedValueOnce(
         createAxiosResponse({
           confidence: 'high',
           createdAt: '2026-06-06T00:01:00.000Z',
@@ -694,7 +779,8 @@ describe('PopupApp', () => {
           title: 'Planner output',
           warnings: [],
         }),
-      );
+      ],
+    });
 
     render(<PopupApp />);
 
@@ -718,16 +804,21 @@ describe('PopupApp', () => {
       );
     });
 
-    expect(axios.request).toHaveBeenNthCalledWith(
-      2,
+    const generationCalls = vi
+      .mocked(axios.request)
+      .mock.calls.filter(([config]) =>
+        (config as { url?: string }).url?.includes('/api/v1/generations'),
+      );
+
+    expect(generationCalls).toHaveLength(2);
+    expect(generationCalls[0]?.[0]).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
           agentType: 'ci-expert',
         }),
       }),
     );
-    expect(axios.request).toHaveBeenNthCalledWith(
-      3,
+    expect(generationCalls[1]?.[0]).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
           agentType: 'planner',
@@ -787,9 +878,7 @@ describe('PopupApp', () => {
   });
 
   it('deletes recent outputs from local history', async () => {
-    vi.mocked(axios.request).mockResolvedValueOnce(
-      createAccessCatalogResponse(),
-    );
+    routeAxios();
     localStorage.setItem(
       'contextpackai_recent_outputs',
       JSON.stringify([

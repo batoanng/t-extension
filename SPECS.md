@@ -1,10 +1,12 @@
 # SPECS.md
 
-# Developer Assistant Chrome Extension
+# OneAgent Chrome Extension
 
 ## 1. Overview
 
-Developer Assistant is a Chrome extension that helps people turn rough requests into stronger prompts before sending work to AI assistants.
+OneAgent is a browser extension that lets developers easily run the most effective public AI agents over their page content or screen captures, visualize that output as diagrams/mind maps, and chain agents into sequences.
+
+The agent list is owned by the OneAgent backend (`GET /api/v1/agents`) and is no longer hardcoded in the extension. Each agent's full content can be opened in the companion web app at `${webBaseUrl}/agents/:id`.
 
 The product has two access paths:
 
@@ -19,7 +21,7 @@ The product must stay easy to start, clear to pay for, and resilient when a user
 
 ### Core promise
 
-Developer Assistant gives users a better prompt-writing workflow without forcing a single purchasing model.
+OneAgent gives users a better prompt-writing workflow without forcing a single purchasing model.
 
 Users can either:
 
@@ -248,7 +250,7 @@ Prompt Optimizer remains the first commercial feature across both access paths.
 The business promise is the same regardless of access mode:
 
 - users provide a rough request
-- Developer Assistant returns a clearer, more structured prompt
+- OneAgent returns a clearer, more structured prompt
 - the improved prompt is ready to copy into the user's preferred AI tool
 
 ---
@@ -266,7 +268,8 @@ Users can:
 - capture the visible active browser tab as an image
 - send the source to the backend extraction API, which uses OpenRouter multimodal chat completions
 - append extracted Markdown into the same editable content field
-- choose an agent type and generate Markdown from the editable content
+- choose an agent type from the backend-owned agent list and generate Markdown from the editable content
+- open the selected agent's full details in the companion web app via a `View agent details` link
 - copy or download generated Markdown as `.md`
 
 ### Extraction behavior
@@ -297,7 +300,11 @@ Users can select multiple saved Markdown outputs and create either a graph or mi
 
 ### Sequence behavior
 
-Users can select current extension agents, arrange their order, and run new content through them synchronously. Each step output becomes the next step input. Only the final step output is saved to Recent.
+Users can select agents from the backend-owned agent list, arrange their order, and run new content through them synchronously. Each step output becomes the next step input. Only the final step output is saved to Recent.
+
+### Agent list source of truth
+
+The agent list comes from the OneAgent backend via `GET /api/v1/agents`, which returns `{ agents: Array<{ id, name, description, category, tags }> }`. The extension fetches it once and shares it across the Generate and Sequence tabs. A built-in fallback list is used while loading or if the request fails so the selectors always render. `GET /api/v1/agents/:id` returns a single agent including its `content`, which the companion web app renders at `${webBaseUrl}/agents/:id`.
 
 ### Recent behavior
 
@@ -360,7 +367,7 @@ Bad framing:
 
 - user-managed keys stay local
 - the product does not require an account just to use BYOK
-- the product should not imply that the user's provider relationship is transferred to Developer Assistant
+- the product should not imply that the user's provider relationship is transferred to OneAgent
 
 ### Hosted trust promise
 

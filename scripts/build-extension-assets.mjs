@@ -22,11 +22,12 @@ function getHostPermissions(serverBaseUrl) {
 
 const manifest = {
   manifest_version: 3,
-  name: 'ContextPackAI',
+  name: 'OneAgent',
   version: packageJson.version,
-  description: 'Turn browser work context into role-specific AI-ready briefs.',
+  description:
+    'Run the most effective public AI agents over your page content or screen captures, visualize the output, and chain agents into sequences.',
   action: {
-    default_title: 'ContextPackAI',
+    default_title: 'OneAgent',
     default_icon: {
       16: 'icons/icon16.png',
       48: 'icons/icon48.png',
